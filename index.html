@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Controle de horas trabalhadas com calendário, resumo mensal e totais automáticos." />
+  <meta name="theme-color" content="#185FA5" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Controle de Horas" />
+  <meta property="og:description" content="Registre reuniões, atividades e pausas. Resumo automático por dia e por mês." />
+  <meta property="og:type" content="website" />
+
+  <title>Controle de Horas</title>
+  <link rel="icon" href="/public/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="container">
+
+    <header class="site-header">
+      <div class="header-logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect width="28" height="28" rx="8" fill="#185FA5"/>
+          <circle cx="14" cy="14" r="7" stroke="white" stroke-width="1.5"/>
+          <path d="M14 10v4l2.5 2.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Controle de Horas
+      </div>
+      <p class="header-sub">Registre reuniões, atividades e pausas — o resumo é calculado automaticamente.</p>
+    </header>
+
+    <!-- Barra de ações -->
+    <div class="topbar">
+      <div></div>
+      <div class="topbar-actions">
+        <button class="btn-action btn-add-day" onclick="addDay()">
+          + Adicionar dia
+        </button>
+        <button class="btn-action btn-rem-day" id="btn-rem" onclick="toggleRemoveMode()">
+          − Remover dia
+        </button>
+        <div class="vdivider" aria-hidden="true"></div>
+        <button class="btn-action btn-cal" id="btn-cal" onclick="toggleCal()">
+          &#128197; Calendário
+        </button>
+      </div>
+    </div>
+
+    <!-- Hint remoção (injetado pelo JS) -->
+    <div id="hint-wrap" role="status" aria-live="polite"></div>
+
+    <!-- Calendário (injetado pelo JS) -->
+    <div id="cal-wrap"></div>
+
+    <!-- Cards de dias + resumo (injetado pelo JS) -->
+    <main id="app-body"></main>
+
+  </div>
+
+  <script src="/src/app.js"></script>
+</body>
+</html>
