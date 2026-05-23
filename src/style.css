@@ -551,3 +551,34 @@ input:focus, select:focus {
 
   .hero-value { font-size: 28px; }
 }
+
+/* ── Auth extras ─────────────────────────────────────────────────── */
+.topbar-user {
+  font-size: 13px;
+  color: var(--tx-secondary);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.user-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--bg-info);
+  color: var(--tx-info);
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-logout {
+  background: none;
+  border: .5px solid var(--bd-light);
+  color: var(--tx-secondary);
+  font-size: 13px;
+  font-family: var(--font);
+  padding: 5px 12px;
+  border-radius: var(--rad-md);
+  cursor: pointer;
+}
+.btn-logout:hover { background: var(--bg-danger); color: var(--tx-danger); border-color: var(--bd-danger); }

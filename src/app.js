@@ -532,3 +532,33 @@ function render() {
 // ─────────────────────────────────────────────────────────────────
 
 render();
+
+// ─── Autenticação ──────────────────────────────────────────────────
+
+(function guardAuth() {
+  const raw = localStorage.getItem('ch_session');
+  if (!raw) { window.location.replace('/login.html'); return; }
+  try {
+    const session = JSON.parse(raw);
+    if (Date.now() >= session.expiry) {
+      localStorage.removeItem('ch_session');
+      window.location.replace('/login.html');
+      return;
+    }
+    const el = document.getElementById('topbar-user');
+    if (el) {
+      const initials = session.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      el.innerHTML = `
+        <div class="user-avatar" aria-hidden="true">${initials}</div>
+        <span>${session.name}</span>`;
+    }
+  } catch {
+    localStorage.removeItem('ch_session');
+    window.location.replace('/login.html');
+  }
+})();
+
+function logout() {
+  localStorage.removeItem('ch_session');
+  window.location.replace('/login.html');
+}
