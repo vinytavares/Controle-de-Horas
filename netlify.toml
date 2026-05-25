@@ -1,16 +1,33 @@
-# Configuração do Netlify — site estático
+# Configuração do Netlify — site estático + funções serverless
 
 [build]
   publish = "."
+  functions = "netlify/functions"
   command = ""
 
-# Pretty URLs (equivalente ao cleanUrls da Vercel)
+# ── API: roteia /api/* para as functions ──
+[[redirects]]
+  from = "/api/signup"
+  to = "/.netlify/functions/signup"
+  status = 200
+
+[[redirects]]
+  from = "/api/login"
+  to = "/.netlify/functions/login"
+  status = 200
+
+[[redirects]]
+  from = "/api/entries"
+  to = "/.netlify/functions/entries"
+  status = 200
+
+# ── Pretty URL para o dashboard ──
 [[redirects]]
   from = "/app"
   to = "/app.html"
   status = 200
 
-# Headers de segurança
+# ── Headers de segurança ──
 [[headers]]
   for = "/*"
   [headers.values]
@@ -18,7 +35,7 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Cache de assets estáticos
+# ── Cache de assets estáticos ──
 [[headers]]
   for = "/src/*"
   [headers.values]

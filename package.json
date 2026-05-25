@@ -1,11 +1,17 @@
 {
   "name": "controle-horas",
-  "version": "2.0.0",
-  "description": "Sistema de controle de horas trabalhadas com calendário e resumo mensal",
+  "version": "3.0.0",
+  "description": "Sistema de controle de horas trabalhadas com calendário, resumo mensal e backend MongoDB",
   "private": true,
   "scripts": {
-    "dev": "npx serve . -p 3000"
+    "dev": "netlify dev",
+    "serve": "npx serve . -p 3000"
   },
-  "keywords": ["time-tracking", "horas", "controle"],
+  "dependencies": {
+    "mongodb": "^6.3.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "keywords": ["time-tracking", "horas", "controle", "mongodb"],
   "license": "MIT"
 }

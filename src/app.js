@@ -525,40 +525,83 @@ function render() {
   renderHint();
   renderCal();
   renderBody();
+  scheduleSave();   // persiste no MongoDB após cada alteração
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Persistência no MongoDB (auto-save com debounce)
+// ─────────────────────────────────────────────────────────────────
+
+let saveTimer = null;
+let suppressSave = true;   // não salva durante o carregamento inicial
+
+function scheduleSave() {
+  if (suppressSave) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await API.saveEntries(state.days, state.nextDayId, state.nextEntryId);
+      showSaveStatus('Salvo');
+    } catch (err) {
+      console.error('[save]', err);
+      showSaveStatus('Erro ao salvar', true);
+    }
+  }, 800);
+}
+
+function showSaveStatus(text, isError = false) {
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  el.textContent = isError ? '⚠ ' + text : '✓ ' + text;
+  el.style.color = isError ? 'var(--tx-danger)' : 'var(--cyan-lt)';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2000);
+}
+
+async function loadFromServer() {
+  try {
+    const data = await API.loadEntries();
+    if (data.days && data.days.length) {
+      state.days        = data.days;
+      state.nextDayId   = data.nextDayId   || state.days.length + 1;
+      state.nextEntryId = data.nextEntryId || 100;
+    }
+    // se não houver dados salvos, mantém o exemplo inicial (será salvo na 1ª edição)
+  } catch (err) {
+    console.error('[load]', err);
+    showSaveStatus('Erro ao carregar', true);
+  } finally {
+    suppressSave = false;   // libera auto-save após o carregamento
+    render();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────
 
-render();
+loadFromServer();
 
 // ─── Autenticação ──────────────────────────────────────────────────
 
 (function guardAuth() {
-  const raw = localStorage.getItem('ch_session');
-  if (!raw) { window.location.replace('/'); return; }
-  try {
-    const session = JSON.parse(raw);
-    if (Date.now() >= session.expiry) {
-      localStorage.removeItem('ch_session');
-      window.location.replace('/');
-      return;
-    }
-    const el = document.getElementById('topbar-user');
-    if (el) {
-      const initials = session.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-      el.innerHTML = `
-        <div class="user-avatar" aria-hidden="true">${initials}</div>
-        <span>${session.name}</span>`;
-    }
-  } catch {
-    localStorage.removeItem('ch_session');
+  if (!window.API || !API.isLoggedIn()) {
     window.location.replace('/');
+    return;
+  }
+  const user = API.getUser();
+  const el = document.getElementById('topbar-user');
+  if (el && user) {
+    const initials = (user.name || user.email).split(' ')
+      .map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    el.innerHTML = `
+      <div class="user-avatar" aria-hidden="true">${initials}</div>
+      <span>${user.name || user.email}</span>`;
   }
 })();
 
 function logout() {
-  localStorage.removeItem('ch_session');
+  API.clearSession();
   window.location.replace('/');
 }

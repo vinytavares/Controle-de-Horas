@@ -8,17 +8,10 @@
  *  - Validação de senha (força e comprimento mínimo)
  *  - Indicador visual de força da senha (4 níveis)
  *  - Feedback inline por campo (erro / sucesso)
- *  - Simulação de autenticação com delay
- *  - Persistência de sessão via localStorage
+ *  - Autenticação real via API (Netlify Functions + MongoDB)
+ *  - Persistência de sessão via token JWT no localStorage
  *  - Redirecionamento para o app após login
  */
-
-// ─── Credenciais de demonstração ──────────────────────────────────
-// Em produção, substituir por chamada autenticada à API.
-const DEMO_USERS = [
-  { email: 'admin@horas.app',   password: 'Admin@2025',  name: 'Administrador' },
-  { email: 'demo@horas.app',    password: 'Demo@1234',   name: 'Usuário Demo'  },
-];
 
 // ─── Referências DOM ──────────────────────────────────────────────
 const form        = document.getElementById('login-form');
@@ -34,18 +27,8 @@ const toast       = document.getElementById('toast');
 
 // ─── Verificar sessão existente ────────────────────────────────────
 (function checkSession() {
-  const session = localStorage.getItem('ch_session');
-  if (session) {
-    try {
-      const { expiry } = JSON.parse(session);
-      if (Date.now() < expiry) {
-        window.location.replace('/app');
-      } else {
-        localStorage.removeItem('ch_session');
-      }
-    } catch {
-      localStorage.removeItem('ch_session');
-    }
+  if (window.API && API.isLoggedIn()) {
+    window.location.replace('/app');
   }
 })();
 
@@ -188,19 +171,7 @@ passInput.addEventListener('blur', () => {
   if (passInput.value) setFieldState('password', validatePassword(passInput.value));
 });
 
-// ─── Autenticação (simulada) ──────────────────────────────────────
-function authenticate(email, password) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = DEMO_USERS.find(
-        u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-      );
-      if (user) resolve(user);
-      else reject(new Error('E-mail ou senha incorretos. Verifique e tente novamente.'));
-    }, 900);
-  });
-}
-
+// ─── Loading do botão ─────────────────────────────────────────────
 function setLoading(on) {
   btnSubmit.disabled = on;
   btnText.hidden     = on;
@@ -229,28 +200,20 @@ form.addEventListener('submit', async (e) => {
   setLoading(true);
 
   try {
-    const user = await authenticate(email, password);
-
-    // Salvar sessão (8 horas)
-    const session = {
-      name:   user.name,
-      email:  user.email,
-      expiry: Date.now() + 8 * 60 * 60 * 1000,
-    };
-    localStorage.setItem('ch_session', JSON.stringify(session));
+    const { token, user } = await API.login(email, password);
+    API.setSession(token, user);
 
     showAlert(`Bem-vindo, ${user.name}!`, 'success');
     showToast('Redirecionando…');
 
-    setTimeout(() => { window.location.replace('/app'); }, 900);
+    setTimeout(() => { window.location.replace('/app'); }, 700);
 
   } catch (err) {
-    showAlert(err.message, 'error');
+    showAlert(err.message || 'Não foi possível entrar.', 'error');
     passInput.value = '';
     renderStrength('');
     clearFieldState('password');
     passInput.focus();
-  } finally {
     setLoading(false);
   }
 });
@@ -260,6 +223,35 @@ function showForgot() {
   showToast('Funcionalidade disponível em breve.');
 }
 
-function showRegister() {
-  showToast('Cadastro disponível em breve.');
+async function showRegister() {
+  const email = emailInput.value.trim();
+  const password = passInput.value;
+
+  // Precisa de e-mail e senha válidos preenchidos
+  const emailErr = validateEmail(email);
+  const passErr  = validatePassword(password);
+  setFieldState('email', emailErr);
+  setFieldState('password', passErr);
+  if (emailErr || passErr) {
+    showAlert('Preencha e-mail e senha (mín. 8 caracteres) para criar sua conta.', 'error');
+    return;
+  }
+
+  // Nome derivado do e-mail (parte antes do @), capitalizado
+  const name = email.split('@')[0]
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+
+  hideAlert();
+  setLoading(true);
+  try {
+    const { token, user } = await API.signup(name, email, password);
+    API.setSession(token, user);
+    showAlert(`Conta criada! Bem-vindo, ${user.name}.`, 'success');
+    showToast('Redirecionando…');
+    setTimeout(() => { window.location.replace('/app'); }, 700);
+  } catch (err) {
+    showAlert(err.message || 'Não foi possível criar a conta.', 'error');
+    setLoading(false);
+  }
 }
