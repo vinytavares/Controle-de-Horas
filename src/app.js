@@ -292,8 +292,8 @@ function renderCal() {
 
     let bars = '';
     if (inf?.total > 0) {
-      if (inf.meeting)  bars += `<div class="cal-bar" style="width:${pct(inf.meeting,  maxTotal)}%;background:#378ADD"></div>`;
-      if (inf.activity) bars += `<div class="cal-bar" style="width:${pct(inf.activity, maxTotal)}%;background:#639922"></div>`;
+      if (inf.meeting)  bars += `<div class="cal-bar" style="width:${pct(inf.meeting,  maxTotal)}%;background:#0E9594"></div>`;
+      if (inf.activity) bars += `<div class="cal-bar" style="width:${pct(inf.activity, maxTotal)}%;background:#11686A"></div>`;
       if (inf.brk)      bars += `<div class="cal-bar" style="width:${pct(inf.brk,      maxTotal)}%;background:var(--bd-mid)"></div>`;
     }
 
@@ -323,8 +323,8 @@ function renderCal() {
         ${cells}
       </div>
       <div class="cal-legend">
-        <div class="cal-leg-item"><div class="cal-leg-dot" style="background:#378ADD"></div>Reunião</div>
-        <div class="cal-leg-item"><div class="cal-leg-dot" style="background:#639922"></div>Atividade</div>
+        <div class="cal-leg-item"><div class="cal-leg-dot" style="background:#0E9594"></div>Reunião</div>
+        <div class="cal-leg-item"><div class="cal-leg-dot" style="background:#11686A"></div>Atividade</div>
         <div class="cal-leg-item"><div class="cal-leg-dot" style="background:var(--bd-mid)"></div>Pausa</div>
       </div>
     </div>`;
@@ -462,13 +462,13 @@ function renderBody() {
 
         <div class="metric-card">
           <div class="metric-label">Reuniões</div>
-          <div class="metric-value" style="color:#185FA5">${formatMins(gMeeting)}</div>
+          <div class="metric-value" style="color:#0E9594">${formatMins(gMeeting)}</div>
           <div class="metric-sub">${timePct(gMeeting)}% do tempo</div>
         </div>
 
         <div class="metric-card">
           <div class="metric-label">Atividades</div>
-          <div class="metric-value" style="color:#3B6D11">${formatMins(gActivity)}</div>
+          <div class="metric-value" style="color:#11686A">${formatMins(gActivity)}</div>
           <div class="metric-sub">${timePct(gActivity)}% do tempo</div>
         </div>
 
@@ -479,14 +479,14 @@ function renderBody() {
           <div class="month-items">
             <div class="month-row">
               <div style="display:flex;align-items:center;gap:5px">
-                <div class="month-dot" style="background:#378ADD"></div>
+                <div class="month-dot" style="background:#0E9594"></div>
                 <span style="color:var(--tx-secondary)">Reuniões</span>
               </div>
               <span style="font-weight:500">${formatMins(mMeeting)}</span>
             </div>
             <div class="month-row">
               <div style="display:flex;align-items:center;gap:5px">
-                <div class="month-dot" style="background:#639922"></div>
+                <div class="month-dot" style="background:#11686A"></div>
                 <span style="color:var(--tx-secondary)">Atividades</span>
               </div>
               <span style="font-weight:500">${formatMins(mActivity)}</span>
@@ -498,17 +498,17 @@ function renderBody() {
 
       <div class="bar-row">
         <span class="bar-label">Reuniões</span>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct(gMeeting,maxBar)}%;background:#378ADD"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct(gMeeting,maxBar)}%;background:#0E9594"></div></div>
         <span class="bar-val">${formatMins(gMeeting)}</span>
       </div>
       <div class="bar-row">
         <span class="bar-label">Atividades</span>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct(gActivity,maxBar)}%;background:#639922"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct(gActivity,maxBar)}%;background:#11686A"></div></div>
         <span class="bar-val">${formatMins(gActivity)}</span>
       </div>
       <div class="bar-row">
         <span class="bar-label">Pausas</span>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct(gBreak,maxBar)}%;background:#888780"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct(gBreak,maxBar)}%;background:#8A6F5C"></div></div>
         <span class="bar-val">${formatMins(gBreak)}</span>
       </div>
 
