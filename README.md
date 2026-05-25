@@ -43,8 +43,8 @@ Sistema web para registrar e totalizar horas de trabalho por tipo — **reuniõe
 
 ```
 controle-horas/
-├── index.html              ← dashboard principal
-├── login.html              ← tela de autenticação
+├── index.html              ← tela de login (home)
+├── app.html                ← dashboard principal
 ├── src/
 │   ├── app.js              ← lógica do dashboard (estado, render, ações)
 │   ├── login.js            ← autenticação, validação e guard de sessão
