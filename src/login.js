@@ -205,6 +205,8 @@ function setLoading(on) {
   btnSubmit.disabled = on;
   btnText.hidden     = on;
   btnLoader.hidden   = !on;
+  const arrow = document.getElementById('btn-arrow');
+  if (arrow) arrow.hidden = on;
 }
 
 // ─── Submit ───────────────────────────────────────────────────────
