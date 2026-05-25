@@ -79,13 +79,6 @@ body::after  { width: 460px; height: 460px; background: var(--espresso); bottom:
 
 /* ── Header ─────────────────────────────────────────────────────── */
 .site-header { margin-bottom: 2rem; }
-.header-logo {
-  display: flex; align-items: center; gap: 10px;
-  font-family: var(--font-display);
-  font-size: 20px; font-weight: 700;
-  color: var(--wheat); margin-bottom: 6px;
-}
-.header-sub { font-size: 14px; color: var(--tx-secondary); margin-left: 38px; font-weight: 300; }
 
 /* ── Topbar ──────────────────────────────────────────────────────── */
 .topbar {
@@ -320,4 +313,96 @@ input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(.7) sepia
   }
   .entry-row > *:nth-child(3), .entry-row > *:nth-child(4) { grid-column: 1 / -1; }
   .hero-value { font-size: 30px; }
+}
+
+/* ================================================================
+   Elementos compartilhados com a tela de login
+   ================================================================ */
+
+/* ── Background orbs (fixos) ─────────────────────────────────────── */
+.bg-orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; filter: blur(90px); opacity: .20; }
+.bg-orb-1 { width: 560px; height: 560px; background: var(--teal);    top: -200px; right: -180px; }
+.bg-orb-2 { width: 480px; height: 480px; background: var(--espresso); bottom: -180px; left: -180px; }
+
+/* Substitui os ::before/::after do body (evita duplicar orbs) */
+body::before, body::after { content: none; }
+
+/* ── Sparkles ────────────────────────────────────────────────────── */
+.sparkle { position: fixed; pointer-events: none; z-index: 0; }
+.sparkle svg { display: block; }
+.sp-1 { width: 36px; color: var(--terra); top: 14%; left: 4%;  animation: sp-spin 13s linear infinite; }
+.sp-2 { width: 18px; color: var(--cyan);  top: 8%;  right: 6%; animation: sp-spin 9s linear infinite reverse; }
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+
+/* ── Header hero (estilo painel lateral do login) ────────────────── */
+.header-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 2rem; flex-wrap: wrap;
+}
+.header-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 0; }
+.header-logo-mark { display: flex; }
+.header-brand {
+  font-family: var(--font-display); font-size: 15px; font-weight: 700;
+  color: var(--wheat); letter-spacing: -.01em;
+}
+
+.header-hero {
+  background: var(--bg-primary);
+  border: 1px solid var(--bd-light);
+  border-radius: var(--rad-lg);
+  padding: 2rem 2.25rem;
+  margin-bottom: 1.75rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.header-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 50% 60% at 90% 20%, rgba(14,149,148,.16) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 10% 90%, rgba(242,84,45,.10) 0%, transparent 65%);
+  pointer-events: none;
+}
+.header-badge {
+  position: relative;
+  display: inline-flex; align-items: center;
+  font-family: var(--font-display);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--terra);
+  background: rgba(242,84,45,.10);
+  border: 1px solid rgba(242,84,45,.22);
+  padding: 5px 13px; border-radius: var(--rad-pill);
+  margin-bottom: 1.25rem;
+}
+.header-headline {
+  position: relative;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 800; line-height: 1.05; letter-spacing: -.02em;
+  color: var(--wheat); margin-bottom: .75rem;
+}
+.header-headline em { font-style: normal; color: var(--cyan); }
+.header-hero .header-sub {
+  position: relative; margin-left: 0;
+  font-size: 14px; color: var(--tx-secondary); font-weight: 300;
+  max-width: 480px;
+}
+
+/* ── Footer ticker (igual ao login lateral) ──────────────────────── */
+.site-footer {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; flex-wrap: wrap;
+  margin-top: 2.5rem; padding-top: 1.5rem;
+  border-top: 1px solid var(--bd-light);
+  font-family: var(--font-display);
+  font-size: 13px; font-weight: 500; color: var(--tx-secondary);
+}
+.site-footer .dot { color: var(--terra); font-size: 10px; }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .header-hero { padding: 1.5rem 1.5rem; }
+  .header-headline { font-size: 1.9rem; }
+  .sparkle { display: none; }
 }
