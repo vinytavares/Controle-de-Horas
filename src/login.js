@@ -39,7 +39,7 @@ const toast       = document.getElementById('toast');
     try {
       const { expiry } = JSON.parse(session);
       if (Date.now() < expiry) {
-        window.location.replace('/index.html');
+        window.location.replace('/app');
       } else {
         localStorage.removeItem('ch_session');
       }
@@ -242,7 +242,7 @@ form.addEventListener('submit', async (e) => {
     showAlert(`Bem-vindo, ${user.name}!`, 'success');
     showToast('Redirecionando…');
 
-    setTimeout(() => { window.location.replace('/index.html'); }, 900);
+    setTimeout(() => { window.location.replace('/app'); }, 900);
 
   } catch (err) {
     showAlert(err.message, 'error');

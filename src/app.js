@@ -537,12 +537,12 @@ render();
 
 (function guardAuth() {
   const raw = localStorage.getItem('ch_session');
-  if (!raw) { window.location.replace('/login.html'); return; }
+  if (!raw) { window.location.replace('/login'); return; }
   try {
     const session = JSON.parse(raw);
     if (Date.now() >= session.expiry) {
       localStorage.removeItem('ch_session');
-      window.location.replace('/login.html');
+      window.location.replace('/login');
       return;
     }
     const el = document.getElementById('topbar-user');
@@ -554,11 +554,11 @@ render();
     }
   } catch {
     localStorage.removeItem('ch_session');
-    window.location.replace('/login.html');
+    window.location.replace('/login');
   }
 })();
 
 function logout() {
   localStorage.removeItem('ch_session');
-  window.location.replace('/login.html');
+  window.location.replace('/login');
 }

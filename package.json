@@ -2,12 +2,10 @@
   "name": "controle-horas",
   "version": "2.0.0",
   "description": "Sistema de controle de horas trabalhadas com calendário e resumo mensal",
+  "private": true,
   "scripts": {
-    "dev": "npx serve . -p 3000",
-    "build": "echo 'Static site — no build step needed'",
-    "start": "npx serve . -p 3000"
+    "dev": "npx serve . -p 3000"
   },
   "keywords": ["time-tracking", "horas", "controle"],
-  "author": "",
   "license": "MIT"
 }
