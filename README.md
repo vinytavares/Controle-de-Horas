@@ -2,7 +2,7 @@
 
 Sistema web para registrar e totalizar horas de trabalho por tipo — **reuniões**, **atividades** e **pausas** — com calendário mensal, resumo automático e autenticação.
 
-[![Deploy](https://img.shields.io/badge/vercel-deployed-black?style=flat-square&logo=vercel)](https://controle-de-horas-6ppskgvj0-vinytavares-projects.vercel.app)
+[![Deploy](https://img.shields.io/badge/netlify-deployed-00C7B7?style=flat-square&logo=netlify)](https://app.netlify.com)
 [![GitHub](https://img.shields.io/badge/github-repo-181717?style=flat-square&logo=github)](https://github.com/vinytavares/Controle-de-Horas)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
@@ -55,7 +55,8 @@ controle-horas/
 ├── docs/
 │   ├── requisitos.md                     ← documentação em Markdown
 │   └── documentacao-controle-horas.docx  ← documentação completa em Word
-├── vercel.json             ← rotas, headers de segurança e cache
+├── vercel.json             ← config Vercel (rotas, headers, cache)
+├── netlify.toml            ← config Netlify (redirects, headers, cache)
 ├── package.json
 ├── .gitignore
 └── README.md
@@ -81,15 +82,15 @@ npx serve . -p 3000
 
 ## Deploy
 
-O projeto está publicado na Vercel com deploy automático a cada `git push` na branch `main`.
+O projeto está publicado no **Netlify** com deploy automático.
 
 ```bash
-# Instalar Vercel CLI
-npm i -g vercel
-
-# Deploy manual
-vercel --prod
+# Via drag & drop: arraste a pasta em app.netlify.com/drop
+# Ou conecte o repositório GitHub em app.netlify.com → "Add new site"
+# Cada git push na branch main dispara deploy automático
 ```
+
+Também é compatível com Vercel (via `vercel.json`) e GitHub Pages.
 
 ---
 
@@ -115,7 +116,7 @@ A documentação completa do projeto está em `/docs/` e inclui:
 | Estilos | CSS3 com custom properties e `prefers-color-scheme` |
 | Lógica | JavaScript ES2020 vanilla (sem bundler) |
 | Auth | localStorage com TTL de 8h |
-| Deploy | Vercel (static) com CI/CD via GitHub |
+| Deploy | Netlify (static) com CI/CD via GitHub |
 
 ---
 

@@ -1,0 +1,25 @@
+# Configuração do Netlify — site estático
+
+[build]
+  publish = "."
+  command = ""
+
+# Pretty URLs (equivalente ao cleanUrls da Vercel)
+[[redirects]]
+  from = "/app"
+  to = "/app.html"
+  status = 200
+
+# Headers de segurança
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Cache de assets estáticos
+[[headers]]
+  for = "/src/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
