@@ -8,8 +8,8 @@
  *  - Validação de senha (força e comprimento mínimo)
  *  - Indicador visual de força da senha (4 níveis)
  *  - Feedback inline por campo (erro / sucesso)
- *  - Autenticação real via API (Netlify Functions + MongoDB)
- *  - Persistência de sessão via token JWT no localStorage
+ *  - Autenticação via Supabase Auth (signUp / signInWithPassword)
+ *  - Sessão persistida automaticamente pelo Supabase JS SDK
  *  - Redirecionamento para o app após login
  */
 
@@ -26,8 +26,8 @@ const pwLabel     = document.getElementById('pw-label');
 const toast       = document.getElementById('toast');
 
 // ─── Verificar sessão existente ────────────────────────────────────
-(function checkSession() {
-  if (window.API && API.isLoggedIn()) {
+(async function checkSession() {
+  if (window.API && await API.isLoggedIn()) {
     window.location.replace('/app');
   }
 })();
@@ -200,8 +200,7 @@ form.addEventListener('submit', async (e) => {
   setLoading(true);
 
   try {
-    const { token, user } = await API.login(email, password);
-    API.setSession(token, user);
+    const { user } = await API.login(email, password);
 
     showAlert(`Bem-vindo, ${user.name}!`, 'success');
     showToast('Redirecionando…');
@@ -245,8 +244,7 @@ async function showRegister() {
   hideAlert();
   setLoading(true);
   try {
-    const { token, user } = await API.signup(name, email, password);
-    API.setSession(token, user);
+    const { user } = await API.signup(name, email, password);
     showAlert(`Conta criada! Bem-vindo, ${user.name}.`, 'success');
     showToast('Redirecionando…');
     setTimeout(() => { window.location.replace('/app'); }, 700);

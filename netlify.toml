@@ -1,33 +1,16 @@
-# Configuração do Netlify — site estático + funções serverless
+# Netlify — site estático puro (backend é Supabase)
 
 [build]
   publish = "."
-  functions = "netlify/functions"
   command = ""
 
-# ── API: roteia /api/* para as functions ──
-[[redirects]]
-  from = "/api/signup"
-  to = "/.netlify/functions/signup"
-  status = 200
-
-[[redirects]]
-  from = "/api/login"
-  to = "/.netlify/functions/login"
-  status = 200
-
-[[redirects]]
-  from = "/api/entries"
-  to = "/.netlify/functions/entries"
-  status = 200
-
-# ── Pretty URL para o dashboard ──
+# Pretty URL para o dashboard
 [[redirects]]
   from = "/app"
   to = "/app.html"
   status = 200
 
-# ── Headers de segurança ──
+# Headers de segurança
 [[headers]]
   for = "/*"
   [headers.values]
@@ -35,7 +18,7 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# ── Cache de assets estáticos ──
+# Cache de assets estáticos
 [[headers]]
   for = "/src/*"
   [headers.values]

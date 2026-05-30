@@ -1,43 +1,36 @@
 # ⏱ Controle de Horas Trabalhadas
 
-Sistema web para registrar e totalizar horas de trabalho por tipo — **reuniões**, **atividades** e **pausas** — com calendário mensal, resumo automático e autenticação.
+Sistema web para registrar e totalizar horas de trabalho por tipo — **reuniões**, **atividades** e **pausas** — com calendário mensal, resumo automático e autenticação real.
 
-[![Deploy](https://img.shields.io/badge/netlify-deployed-00C7B7?style=flat-square&logo=netlify)](https://app.netlify.com)
-[![GitHub](https://img.shields.io/badge/github-repo-181717?style=flat-square&logo=github)](https://github.com/vinytavares/Controle-de-Horas)
+[![Netlify](https://img.shields.io/badge/netlify-deployed-00C7B7?style=flat-square&logo=netlify)](https://app.netlify.com)
+[![Supabase](https://img.shields.io/badge/supabase-postgres%20%2B%20auth-3FCF8E?style=flat-square&logo=supabase)](https://supabase.com)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
-## 🌐 Demo ao vivo
-
-**[controle-de-horas-6ppskgvj0-vinytavares-projects.vercel.app](https://controle-de-horas-6ppskgvj0-vinytavares-projects.vercel.app)**
-
-### Credenciais de acesso
-
-| E-mail | Senha |
-|--------|-------|
-| `admin@horas.app` | `Admin@2025` |
-| `demo@horas.app` | `Demo@1234` |
-
 ---
+
+## Arquitetura
+
+```
+Navegador  ─────────────────►  Supabase
+(HTML/CSS/JS estático)         ├── Auth        (signup, login, sessão)
+                               └── Postgres    (3 tabelas com RLS)
+```
+
+**Zero backend custom.** O front-end conversa direto com o Supabase via `supabase-js`. Toda segurança vem das **Row Level Security (RLS) policies** no Postgres — cada usuário só enxerga e edita os próprios dados.
 
 ## Funcionalidades
 
-- Tela de login com validação de e-mail e senha em tempo real
-- Indicador de força de senha em 4 níveis (Fraca / Regular / Boa / Forte)
-- Sessão autenticada com expiração de 8 horas
-- Registro de entradas por dia (reunião, atividade, pausa)
-- Colunas Tipo e Descrição separadas na grade
+- Cadastro e login com e-mail/senha via Supabase Auth
+- Validação de e-mail e senha em tempo real, indicador de força (4 níveis)
+- Sessão persistida automaticamente pelo SDK
+- Registro de entradas por dia: início, fim, tipo, descrição
 - Cálculo automático de duração por entrada e por dia
-- Múltiplos dias com ordenação cronológica
 - Calendário mensal com barras de horas por dia
-- Adicionar / remover dias com seleção interativa por clique no card
-- Resumo geral com card hero de total em destaque
-- Resumo mensal no lugar de "Pausas" nos cards de métricas
-- Barras comparativas por categoria
-- Tema claro e escuro automático (`prefers-color-scheme`)
-- Layout responsivo — mobile, tablet e desktop
-- Zero dependências — HTML + CSS + JS puro
-
----
+- Adicionar / remover dias com seleção interativa
+- Resumo geral com total em destaque + resumo mensal
+- Tema unificado terracotta / teal / espresso
+- Layout responsivo mobile / tablet / desktop
+- Tema dark com fontes Syne (display) + DM Sans (body)
 
 ## Estrutura
 
@@ -46,79 +39,59 @@ controle-horas/
 ├── index.html              ← tela de login (home)
 ├── app.html                ← dashboard principal
 ├── src/
-│   ├── app.js              ← lógica do dashboard (estado, render, ações)
-│   ├── login.js            ← autenticação, validação e guard de sessão
-│   ├── style.css           ← estilos do dashboard com dark mode
-│   └── login.css           ← estilos do login — responsivo com clamp/dvh/env()
-├── public/
-│   └── favicon.svg
+│   ├── api.js              ← cliente Supabase (auth + CRUD)
+│   ├── login.js            ← form de login/cadastro
+│   ├── app.js              ← dashboard, calendário, resumo
+│   ├── login.css           ← estilos do login
+│   └── style.css           ← estilos do dashboard
+├── public/favicon.svg
 ├── docs/
-│   ├── requisitos.md                     ← documentação em Markdown
-│   └── documentacao-controle-horas.docx  ← documentação completa em Word
-├── vercel.json             ← config Vercel (rotas, headers, cache)
-├── netlify.toml            ← config Netlify (redirects, headers, cache)
+│   ├── requisitos.md
+│   └── documentacao-controle-horas.docx
+├── netlify.toml            ← config de deploy
 ├── package.json
-├── .gitignore
 └── README.md
 ```
 
----
+## Schema do banco
+
+| Tabela | Colunas principais | RLS |
+|--------|--------------------|-----|
+| `profiles` | id (FK → auth.users), name, email | usuário só lê/edita o próprio |
+| `days` | id, user_id, date, unique(user_id,date) | CRUD restrito ao próprio user_id |
+| `entries` | id, day_id, user_id, start_time, end_time, type, description, position | CRUD restrito ao próprio user_id |
+
+Tipo `entry_type` enum: `meeting | activity | break`.
+Triggers automáticos: criação de profile no signup, `updated_at` em updates.
 
 ## Rodar localmente
 
 ```bash
 git clone https://github.com/vinytavares/Controle-de-Horas.git
 cd Controle-de-Horas
-
-# Abre direto no navegador
-open index.html
-
-# Com servidor local (recomendado)
 npx serve . -p 3000
 # → http://localhost:3000
 ```
 
----
+Sem build step, sem dependências Node a instalar. O `supabase-js` é carregado via CDN.
 
 ## Deploy
 
-O projeto está publicado no **Netlify** com deploy automático.
+O projeto é estático puro — funciona em qualquer CDN: Netlify, Vercel, GitHub Pages, Cloudflare Pages, S3+CloudFront, etc.
 
-```bash
-# Via drag & drop: arraste a pasta em app.netlify.com/drop
-# Ou conecte o repositório GitHub em app.netlify.com → "Add new site"
-# Cada git push na branch main dispara deploy automático
-```
-
-Também é compatível com Vercel (via `vercel.json`) e GitHub Pages.
-
----
-
-## Documentação
-
-A documentação completa do projeto está em `/docs/` e inclui:
-
-- Visão geral do negócio e proposta de valor
-- 48 requisitos funcionais em 5 módulos
-- Requisitos não funcionais (usabilidade, performance, segurança)
-- 18 regras de negócio com IDs rastreáveis
-- 10 histórias de usuário com critérios de aceite
-- Fluxo de navegação e arquitetura de arquivos
-- Glossário e roadmap futuro
-
----
+Cada `git push` na branch `main` dispara deploy automático na plataforma conectada.
 
 ## Tecnologias
 
 | Camada | Tecnologia |
 |--------|-----------|
 | Estrutura | HTML5 semântico |
-| Estilos | CSS3 com custom properties e `prefers-color-scheme` |
-| Lógica | JavaScript ES2020 vanilla (sem bundler) |
-| Auth | localStorage com TTL de 8h |
-| Deploy | Netlify (static) com CI/CD via GitHub |
-
----
+| Estilos | CSS3 com custom properties, prefers-color-scheme |
+| Lógica | JavaScript ES2020 vanilla, sem bundler |
+| Auth | Supabase Auth |
+| Banco | Supabase Postgres + Row Level Security |
+| Fontes | Syne + DM Sans (Google Fonts) |
+| Hospedagem | Netlify (estático) |
 
 ## Licença
 

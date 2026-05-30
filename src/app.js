@@ -36,19 +36,7 @@ const state = {
   removingId: null,
   calYear:    TODAY.getFullYear(),
   calMonth:   TODAY.getMonth(),
-  days: [
-    {
-      id: 1,
-      date: TODAYSTR,
-      entries: [
-        { id: 1, start: '09:00', end: '10:30', type: 'meeting',  desc: 'Daily + planejamento' },
-        { id: 2, start: '10:30', end: '12:00', type: 'activity', desc: 'Desenvolvimento de feature' },
-        { id: 3, start: '13:00', end: '17:00', type: 'activity', desc: 'Revisão de código' },
-      ],
-    },
-  ],
-  nextDayId:   2,
-  nextEntryId: 10,
+  days:       [],   // populado por loadFromServer()
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -100,21 +88,28 @@ function pct(val, max) {
 // Ações: dias
 // ─────────────────────────────────────────────────────────────────
 
-function addDay() {
+async function addDay() {
   const used = new Set(state.days.map(d => d.date));
   let dt = new Date(TODAYSTR + 'T12:00:00');
 
   for (let i = 0; i < 365; i++) {
     const s = dt.toISOString().slice(0, 10);
     if (!used.has(s)) {
-      state.days.push({ id: state.nextDayId++, date: s, entries: [] });
-      state.days.sort((a, b) => a.date.localeCompare(b.date));
-      render();
-      setTimeout(() => {
-        const idx = state.days.findIndex(d => d.date === s);
-        document.querySelectorAll('.day-card')[idx]
-          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 80);
+      try {
+        const newDay = await API.createDay(s);
+        state.days.push(newDay);
+        state.days.sort((a, b) => a.date.localeCompare(b.date));
+        render();
+        setTimeout(() => {
+          const idx = state.days.findIndex(d => d.date === s);
+          document.querySelectorAll('.day-card')[idx]
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 80);
+        showSaveStatus('Dia adicionado');
+      } catch (err) {
+        showSaveStatus('Erro ao adicionar dia', true);
+        console.error(err);
+      }
       return;
     }
     dt.setDate(dt.getDate() + 1);
@@ -133,12 +128,20 @@ function selectForRemoval(dayId) {
   render();
 }
 
-function confirmRemove() {
+async function confirmRemove() {
   if (!state.removingId) return;
-  state.days = state.days.filter(d => d.id !== state.removingId);
-  state.removingId = null;
-  if (state.days.length === 0) state.removeMode = false;
-  render();
+  const dayId = state.removingId;
+  try {
+    await API.deleteDay(dayId);
+    state.days = state.days.filter(d => d.id !== dayId);
+    state.removingId = null;
+    if (state.days.length === 0) state.removeMode = false;
+    render();
+    showSaveStatus('Dia removido');
+  } catch (err) {
+    showSaveStatus('Erro ao remover dia', true);
+    console.error(err);
+  }
 }
 
 function cancelRemoveMode() {
@@ -148,40 +151,68 @@ function cancelRemoveMode() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Ações: entradas
+// Ações: entradas (otimista — UI imediata, persistência em background)
 // ─────────────────────────────────────────────────────────────────
 
-function updateEntry(dayId, entryId, field, value) {
+async function updateEntry(dayId, entryId, field, value) {
   const day   = state.days.find(d => d.id === dayId);
   const entry = day.entries.find(e => e.id === entryId);
   entry[field] = value;
   render();
+  try {
+    await API.updateEntry(entryId, { [field]: value });
+    showSaveStatus('Salvo');
+  } catch (err) {
+    showSaveStatus('Erro ao salvar', true);
+    console.error(err);
+  }
 }
 
-function removeEntry(dayId, entryId) {
+async function removeEntry(dayId, entryId) {
   const day = state.days.find(d => d.id === dayId);
   day.entries = day.entries.filter(e => e.id !== entryId);
   render();
+  try {
+    await API.deleteEntry(entryId);
+    showSaveStatus('Removido');
+  } catch (err) {
+    showSaveStatus('Erro ao remover', true);
+    console.error(err);
+  }
 }
 
-function addEntry(dayId) {
+async function addEntry(dayId) {
   const day  = state.days.find(d => d.id === dayId);
   const last = day.entries[day.entries.length - 1];
-  day.entries.push({
-    id:    state.nextEntryId++,
+  const draft = {
     start: last?.end || '09:00',
     end:   '',
     type:  'activity',
     desc:  '',
-  });
-  render();
+  };
+  try {
+    const id = await API.createEntry(dayId, draft, day.entries.length);
+    day.entries.push({ id, ...draft });
+    render();
+    showSaveStatus('Entrada adicionada');
+  } catch (err) {
+    showSaveStatus('Erro ao adicionar', true);
+    console.error(err);
+  }
 }
 
-function updateDay(dayId, field, value) {
+async function updateDay(dayId, field, value) {
   const day = state.days.find(d => d.id === dayId);
   day[field] = value;
   state.days.sort((a, b) => a.date.localeCompare(b.date));
   render();
+  try {
+    await API.updateDay(dayId, { [field]: value });
+    showSaveStatus('Salvo');
+  } catch (err) {
+    showSaveStatus('Erro ao salvar', true);
+    console.error(err);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -200,10 +231,18 @@ function shiftMonth(dir) {
   renderCal();
 }
 
-function calDayClick(ds) {
+async function calDayClick(ds) {
   if (!state.days.find(d => d.date === ds)) {
-    state.days.push({ id: state.nextDayId++, date: ds, entries: [] });
-    state.days.sort((a, b) => a.date.localeCompare(b.date));
+    try {
+      const newDay = await API.createDay(ds);
+      state.days.push(newDay);
+      state.days.sort((a, b) => a.date.localeCompare(b.date));
+      showSaveStatus('Dia adicionado');
+    } catch (err) {
+      showSaveStatus('Erro ao adicionar', true);
+      console.error(err);
+      return;
+    }
   }
   renderCal();
   renderBody();
@@ -525,29 +564,15 @@ function render() {
   renderHint();
   renderCal();
   renderBody();
-  scheduleSave();   // persiste no MongoDB após cada alteração
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Persistência no MongoDB (auto-save com debounce)
+// Persistência (Supabase)
+//
+// Mutações usam UPDATE otimista: o estado local muda imediatamente
+// e a chamada à API roda em paralelo. O indicador "✓ Salvo" /
+// "⚠ Erro" aparece na topbar conforme o resultado.
 // ─────────────────────────────────────────────────────────────────
-
-let saveTimer = null;
-let suppressSave = true;   // não salva durante o carregamento inicial
-
-function scheduleSave() {
-  if (suppressSave) return;
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    try {
-      await API.saveEntries(state.days, state.nextDayId, state.nextEntryId);
-      showSaveStatus('Salvo');
-    } catch (err) {
-      console.error('[save]', err);
-      showSaveStatus('Erro ao salvar', true);
-    }
-  }, 800);
-}
 
 function showSaveStatus(text, isError = false) {
   const el = document.getElementById('save-status');
@@ -556,41 +581,34 @@ function showSaveStatus(text, isError = false) {
   el.style.color = isError ? 'var(--tx-danger)' : 'var(--cyan-lt)';
   el.style.opacity = '1';
   clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2000);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 1800);
 }
 
 async function loadFromServer() {
   try {
-    const data = await API.loadEntries();
-    if (data.days && data.days.length) {
-      state.days        = data.days;
-      state.nextDayId   = data.nextDayId   || state.days.length + 1;
-      state.nextEntryId = data.nextEntryId || 100;
-    }
-    // se não houver dados salvos, mantém o exemplo inicial (será salvo na 1ª edição)
+    const days = await API.loadDays();
+    state.days = days;
+    render();
   } catch (err) {
     console.error('[load]', err);
-    showSaveStatus('Erro ao carregar', true);
-  } finally {
-    suppressSave = false;   // libera auto-save após o carregamento
+    showSaveStatus('Erro ao carregar dados', true);
     render();
   }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Init
+// Autenticação + Init
 // ─────────────────────────────────────────────────────────────────
 
-loadFromServer();
-
-// ─── Autenticação ──────────────────────────────────────────────────
-
-(function guardAuth() {
-  if (!window.API || !API.isLoggedIn()) {
+(async function bootstrap() {
+  // Guard: redireciona ao login se não autenticado
+  if (!window.API || !(await API.isLoggedIn())) {
     window.location.replace('/');
     return;
   }
-  const user = API.getUser();
+
+  // Cabeçalho com nome do usuário
+  const user = await API.getUser();
   const el = document.getElementById('topbar-user');
   if (el && user) {
     const initials = (user.name || user.email).split(' ')
@@ -599,9 +617,12 @@ loadFromServer();
       <div class="user-avatar" aria-hidden="true">${initials}</div>
       <span>${user.name || user.email}</span>`;
   }
+
+  // Carrega dados do banco
+  await loadFromServer();
 })();
 
-function logout() {
-  API.clearSession();
+async function logout() {
+  await API.logout();
   window.location.replace('/');
 }
