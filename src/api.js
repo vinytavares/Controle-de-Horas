@@ -48,8 +48,25 @@ const API = {
       password,
       options: { data: { name } },
     });
+
     if (error) throw new Error(this._friendlyError(error));
-    return { user: { id: data.user?.id, name, email } };
+
+    // Se sessão veio direto (email confirm desativado no dashboard), ótimo.
+    if (data.session) {
+      return { user: { id: data.user.id, name, email } };
+    }
+
+    // Sessão nula: GoTrue exige confirmação, mas nosso trigger já confirmou
+    // no banco. Tenta login imediatamente — vai funcionar.
+    try {
+      const loginResult = await this.login(email, password);
+      return loginResult;
+    } catch {
+      // Login falhou mesmo após trigger — pede confirmação manual
+      const err = new Error('CONFIRM_EMAIL');
+      err.needsConfirmation = true;
+      throw err;
+    }
   },
 
   async login(email, password) {

@@ -249,6 +249,15 @@ async function showRegister() {
     showToast('Redirecionando…');
     setTimeout(() => { window.location.replace('/app'); }, 700);
   } catch (err) {
+    // Confirmação de email necessária — conta foi criada, aguarda confirmação
+    if (err.needsConfirmation) {
+      showAlert(
+        '✉ Conta criada! Verifique seu e-mail e clique no link de confirmação para ativar.',
+        'success'
+      );
+      setLoading(false);
+      return;
+    }
     showAlert(err.message || 'Não foi possível criar a conta.', 'error');
     setLoading(false);
   }
