@@ -10,6 +10,12 @@
   to = "/app.html"
   status = 200
 
+# Pretty URL para o cadastro
+[[redirects]]
+  from = "/register"
+  to = "/register.html"
+  status = 200
+
 # Headers de segurança
 [[headers]]
   for = "/*"

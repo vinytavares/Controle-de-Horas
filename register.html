@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#1A0F0F" />
-  <title>Entrar — Controle de Horas</title>
+  <title>Criar conta — Controle de Horas</title>
   <link rel="icon" href="/public/favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/login.css" />
+  <link rel="stylesheet" href="/src/register.css" />
 </head>
 <body>
 
@@ -34,12 +35,12 @@
     <!-- Left panel (decorative, desktop only) -->
     <aside class="login-side" aria-hidden="true">
       <div class="side-inner">
-        <div class="side-badge">Sistema de Controle</div>
-        <p class="side-headline">Saiba exatamente<br/>onde seu<br/><em>tempo</em> vai.</p>
+        <div class="side-badge">Novo por aqui?</div>
+        <p class="side-headline">Comece a<br/>controlar seu<br/><em>tempo</em> agora.</p>
         <div class="side-stats">
-          <div class="stat"><span class="stat-num">8h</span><span class="stat-lbl">sessão segura</span></div>
-          <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">tipos de entrada</span></div>
           <div class="stat"><span class="stat-num">∞</span><span class="stat-lbl">dias registrados</span></div>
+          <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">tipos de entrada</span></div>
+          <div class="stat"><span class="stat-num">100%</span><span class="stat-lbl">gratuito</span></div>
         </div>
         <div class="side-ticker" aria-label="Categorias">
           <span>Reuniões</span><span class="dot">✦</span>
@@ -66,12 +67,13 @@
         </div>
 
         <div class="login-heading">
-          <h1>Bem-vindo<span class="accent">.</span></h1>
-          <p>Entre com sua conta para continuar</p>
+          <h1>Criar conta<span class="accent">.</span></h1>
+          <p>Preencha os dados abaixo para se cadastrar</p>
         </div>
 
-        <form class="login-form" id="login-form" novalidate autocomplete="on">
+        <form class="login-form" id="register-form" novalidate autocomplete="on">
 
+          <!-- Email -->
           <div class="field-group" id="fg-email">
             <label class="field-label" for="email">E-mail</label>
             <div class="field-wrap">
@@ -90,11 +92,9 @@
             <span class="field-error" id="email-error" role="alert" aria-live="polite"></span>
           </div>
 
+          <!-- Senha -->
           <div class="field-group" id="fg-password">
-            <div class="field-label-row">
-              <label class="field-label" for="password">Senha</label>
-              <button type="button" class="forgot-link" onclick="showForgot()">Esqueceu?</button>
-            </div>
+            <label class="field-label" for="password">Senha</label>
             <div class="field-wrap">
               <span class="field-icon" aria-hidden="true">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -103,11 +103,11 @@
                 </svg>
               </span>
               <input type="password" id="password" name="password" class="field-input"
-                placeholder="Mínimo 8 caracteres" autocomplete="current-password"
-                aria-describedby="password-error" aria-required="true"
+                placeholder="Mínimo 8 caracteres" autocomplete="new-password"
+                aria-describedby="password-error password-rules" aria-required="true"
               />
-              <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Mostrar senha" onclick="togglePassword()">
-                <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Mostrar senha" onclick="togglePassword('password', 'toggle-pw')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
               </button>
@@ -115,6 +115,7 @@
             <span class="field-error" id="password-error" role="alert" aria-live="polite"></span>
           </div>
 
+          <!-- Indicador de força -->
           <div class="pw-strength" id="pw-strength" role="status" aria-label="Força da senha">
             <div class="pw-bars" aria-hidden="true">
               <div class="pw-bar" id="bar-1"></div>
@@ -125,10 +126,52 @@
             <span class="pw-label" id="pw-label"></span>
           </div>
 
+          <!-- Regras de senha -->
+          <ul class="pw-rules" id="password-rules" aria-label="Requisitos da senha">
+            <li class="rule" id="rule-length" data-rule="length">
+              <span class="rule-icon" aria-hidden="true"></span>
+              Mínimo 8 caracteres
+            </li>
+            <li class="rule" id="rule-upper" data-rule="upper">
+              <span class="rule-icon" aria-hidden="true"></span>
+              Uma letra maiúscula (A–Z)
+            </li>
+            <li class="rule" id="rule-lower" data-rule="lower">
+              <span class="rule-icon" aria-hidden="true"></span>
+              Uma letra minúscula (a–z)
+            </li>
+            <li class="rule" id="rule-number" data-rule="number">
+              <span class="rule-icon" aria-hidden="true"></span>
+              Um número (0–9)
+            </li>
+          </ul>
+
+          <!-- Confirmação de senha -->
+          <div class="field-group" id="fg-confirm">
+            <label class="field-label" for="confirm">Confirmar senha</label>
+            <div class="field-wrap">
+              <span class="field-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </span>
+              <input type="password" id="confirm" name="confirm" class="field-input"
+                placeholder="Repita sua senha" autocomplete="new-password"
+                aria-describedby="confirm-error" aria-required="true"
+              />
+              <button type="button" class="toggle-pw" id="toggle-confirm" aria-label="Mostrar confirmação de senha" onclick="togglePassword('confirm', 'toggle-confirm')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+            <span class="field-error" id="confirm-error" role="alert" aria-live="polite"></span>
+          </div>
+
           <div class="form-alert" id="form-alert" role="alert" aria-live="assertive"></div>
 
           <button type="submit" class="btn-submit" id="btn-submit">
-            <span id="btn-text">Entrar</span>
+            <span id="btn-text">Criar conta</span>
             <span class="btn-arrow" id="btn-arrow" aria-hidden="true">→</span>
             <span id="btn-loader" class="btn-loader" hidden aria-hidden="true"></span>
           </button>
@@ -136,8 +179,8 @@
         </form>
 
         <p class="login-footer">
-          Não tem conta?
-          <a href="/register" class="link-btn">Criar acesso</a>
+          Já tem conta?
+          <a href="/" class="link-btn">Entrar</a>
         </p>
 
       </div>
@@ -147,6 +190,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/src/api.js"></script>
-  <script src="/src/login.js"></script>
+  <script src="/src/register.js"></script>
 </body>
 </html>
