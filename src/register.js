@@ -221,6 +221,11 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideAlert();
 
+  if (!window.API) {
+    showAlert('Erro de conexão. Recarregue a página e tente novamente.', 'error');
+    return;
+  }
+
   const email    = emailInput.value.trim();
   const password = passInput.value;
   const confirm  = confirmInput.value;

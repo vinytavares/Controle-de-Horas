@@ -11,7 +11,10 @@
 const SUPABASE_URL = 'https://bwejrhrxszbdydocbyqs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_yvFjVYGFlHyP5jeqW0rs-A_MuEu5RRQ';
 
-// Cliente único (a lib supabase-js é carregada via CDN no HTML)
+if (!window.supabase) {
+  throw new Error('Supabase SDK não carregou. Verifique sua conexão e recarregue a página.');
+}
+
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const API = {

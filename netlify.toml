@@ -29,6 +29,11 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+[[headers]]
+  for = "/public/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # Sem cache para HTML (sempre atualizado)
 [[headers]]
   for = "/*.html"
