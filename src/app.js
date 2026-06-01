@@ -43,6 +43,27 @@ const state = {
 // Utilitários
 // ─────────────────────────────────────────────────────────────────
 
+/** Converte string "1.5", "1,5" ou "1:30" em minutos inteiros. Retorna null se inválido. */
+function parseHours(val) {
+  if (!val) return null;
+  const v = String(val).trim().replace(',', '.');
+  if (v.includes(':')) {
+    const [h, m] = v.split(':').map(n => parseInt(n, 10) || 0);
+    const total = h * 60 + m;
+    return total > 0 ? total : null;
+  }
+  const h = parseFloat(v);
+  return !isNaN(h) && h > 0 ? Math.round(h * 60) : null;
+}
+
+/** Converte minutos → string "H:MM" para exibir no input de duração. */
+function minsToHoursInput(mins) {
+  if (!mins || mins <= 0) return '';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
 /** Diferença em minutos entre dois horários HH:MM. */
 function timeDiff(start, end) {
   if (!start || !end) return 0;
@@ -60,11 +81,11 @@ function formatMins(m) {
   return h > 0 ? `${h}h ${String(min).padStart(2, '0')}m` : `${min}m`;
 }
 
-/** Totais de um dia. */
+/** Totais de um dia. Usa duration_mins quando disponível (modo só-duração). */
 function getDayTotals(day) {
   let meeting = 0, activity = 0, brk = 0;
   day.entries.forEach(e => {
-    const d = timeDiff(e.start, e.end);
+    const d = e.mins != null ? e.mins : timeDiff(e.start, e.end);
     if      (e.type === 'meeting')  meeting  += d;
     else if (e.type === 'activity') activity += d;
     else                            brk      += d;
@@ -189,6 +210,7 @@ async function addEntry(dayId) {
     end:   '',
     type:  'activity',
     desc:  '',
+    mins:  null,
   };
   try {
     const id = await API.createEntry(dayId, draft, day.entries.length);
@@ -197,6 +219,29 @@ async function addEntry(dayId) {
     showSaveStatus('Entrada adicionada');
   } catch (err) {
     showSaveStatus('Erro ao adicionar', true);
+    console.error(err);
+  }
+}
+
+async function toggleEntryMode(dayId, entryId) {
+  const day   = state.days.find(d => d.id === dayId);
+  const entry = day.entries.find(e => e.id === entryId);
+
+  if (entry.mins != null) {
+    // Voltar para modo horário
+    entry.mins = null;
+  } else {
+    // Mudar para modo só-duração: aproveita o intervalo já preenchido
+    const calc = timeDiff(entry.start, entry.end);
+    entry.mins = calc > 0 ? calc : 60;
+  }
+
+  render();
+  try {
+    await API.updateEntry(entryId, { mins: entry.mins, start: entry.start, end: entry.end });
+    showSaveStatus('Salvo');
+  } catch (err) {
+    showSaveStatus('Erro ao salvar', true);
     console.error(err);
   }
 }
@@ -425,11 +470,11 @@ function renderBody() {
         </div>
 
         <div class="entry-header-row">
-          <span>Início</span>
-          <span>Fim</span>
+          <span></span>
+          <span>Horário / Duração</span>
           <span>Tipo</span>
           <span>Descrição</span>
-          <span style="text-align:right;padding-right:4px">Duração</span>
+          <span style="text-align:right;padding-right:4px">Total</span>
           <span></span>
         </div>
         <div class="sep"></div>
@@ -437,15 +482,36 @@ function renderBody() {
         <div class="entries-list">`;
 
     day.entries.forEach(entry => {
-      const dur = timeDiff(entry.start, entry.end);
-      html += `
-          <div class="entry-row">
-            <input type="time" value="${entry.start}"
+      const isDur = entry.mins != null;
+      const dur   = isDur ? entry.mins : timeDiff(entry.start, entry.end);
+
+      // Ícone do botão de modo: mostra o modo ALTERNATIVO (o que você vai ganhar ao clicar)
+      const modeIcon = isDur
+        ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`
+        : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2h14"/><path d="M5 22h14"/><path d="M5 2c0 9 14 9 14 0"/><path d="M5 22c0-9 14-9 14 0"/></svg>`;
+      const modeTitle = isDur ? 'Usar horário de início e fim' : 'Registrar só a duração';
+
+      // Área de tempo: dois inputs de hora OU um input de duração
+      const timeArea = isDur
+        ? `<input type="text" class="hrs-field" value="${minsToHoursInput(entry.mins)}"
+              placeholder="ex: 1:30 ou 1.5"
+              title="Horas no formato H:MM ou decimal (ex: 1.5)"
+              onclick="event.stopPropagation()"
+              onchange="updateEntry(${day.id},${entry.id},'mins',parseHours(this.value))">`
+        : `<input type="time" class="time-field" value="${entry.start}"
               onclick="event.stopPropagation()"
               onchange="updateEntry(${day.id},${entry.id},'start',this.value)">
-            <input type="time" value="${entry.end}"
+            <span class="time-sep" aria-hidden="true">→</span>
+            <input type="time" class="time-field" value="${entry.end}"
               onclick="event.stopPropagation()"
-              onchange="updateEntry(${day.id},${entry.id},'end',this.value)">
+              onchange="updateEntry(${day.id},${entry.id},'end',this.value)">`;
+
+      html += `
+          <div class="entry-row">
+            <button class="btn-mode" title="${modeTitle}"
+              onclick="event.stopPropagation();toggleEntryMode(${day.id},${entry.id})"
+              aria-label="${modeTitle}">${modeIcon}</button>
+            <div class="entry-time-area">${timeArea}</div>
             <select onclick="event.stopPropagation()"
               onchange="updateEntry(${day.id},${entry.id},'type',this.value)">
               <option value="meeting"  ${entry.type === 'meeting'  ? 'selected' : ''}>Reunião</option>
