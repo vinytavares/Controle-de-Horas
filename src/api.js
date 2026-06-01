@@ -87,7 +87,7 @@ const API = {
 
     const { data: entriesRaw, error: errEntries } = await supabase
       .from('entries')
-      .select('id, day_id, start_time, end_time, type, description, position')
+      .select('id, day_id, start_time, end_time, type, description, position, duration_mins')
       .order('position', { ascending: true });
     if (errEntries) throw new Error(errEntries.message);
 
@@ -101,6 +101,7 @@ const API = {
         end:   (e.end_time || '').slice(0, 5),
         type:  e.type,
         desc:  e.description || '',
+        mins:  e.duration_mins ?? null,
       });
     });
 
@@ -141,13 +142,14 @@ const API = {
     const { data, error } = await supabase
       .from('entries')
       .insert({
-        day_id:      dayId,
-        user_id:     session.user.id,
-        start_time:  entry.start || null,
-        end_time:    entry.end   || null,
-        type:        entry.type,
-        description: entry.desc  || '',
+        day_id:        dayId,
+        user_id:       session.user.id,
+        start_time:    entry.start || null,
+        end_time:      entry.end   || null,
+        type:          entry.type,
+        description:   entry.desc  || '',
         position,
+        duration_mins: entry.mins  ?? null,
       })
       .select('id')
       .single();
@@ -157,11 +159,12 @@ const API = {
 
   async updateEntry(entryId, fields) {
     const payload = {};
-    if ('start' in fields) payload.start_time  = fields.start || null;
-    if ('end'   in fields) payload.end_time    = fields.end   || null;
-    if ('type'  in fields) payload.type        = fields.type;
-    if ('desc'  in fields) payload.description = fields.desc;
-    if ('position' in fields) payload.position = fields.position;
+    if ('start'    in fields) payload.start_time    = fields.start || null;
+    if ('end'      in fields) payload.end_time      = fields.end   || null;
+    if ('type'     in fields) payload.type          = fields.type;
+    if ('desc'     in fields) payload.description   = fields.desc;
+    if ('position' in fields) payload.position      = fields.position;
+    if ('mins'     in fields) payload.duration_mins = fields.mins ?? null;
 
     const { error } = await supabase.from('entries').update(payload).eq('id', entryId);
     if (error) throw new Error(error.message);
