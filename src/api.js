@@ -12,7 +12,10 @@ const SUPABASE_URL = 'https://bwejrhrxszbdydocbyqs.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_yvFjVYGFlHyP5jeqW0rs-A_MuEu5RRQ';
 
 if (!window.supabase) {
-  throw new Error('Supabase SDK não carregou. Verifique sua conexão e recarregue a página.');
+  console.error('Supabase SDK não carregou.');
+  window.API = null;
+  // eslint-disable-next-line no-throw-literal
+  throw 'supabase-not-loaded';
 }
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
