@@ -360,14 +360,102 @@ async function fillRegister(page, email, pw, confirm) {
     await ctx.close();
   });
 
-  await scenario('ADICIONAR ENTRADA: clique → POST em entries + linha nova + feedback', async () => {
+  await scenario('ADICIONAR HORÁRIO: rascunho abre com foco no campo inicial', async () => {
     const db = makeDb();
     const { ctx, page, pageErrors } = await newDashboard(browser, db);
     await page.click('.day-card >> nth=0 >> .btn-add-entry');
-    await page.waitForFunction(() => document.querySelectorAll('.entry-row').length === 2, { timeout: 5000 });
-    expect(db.entries.length === 2, 'entrada não persistida no banco (sem POST)');
+    await page.waitForSelector('.draft-row', { timeout: 5000 });
+    await page.waitForTimeout(150);
+    const focused = await page.evaluate(() => document.activeElement?.id);
+    expect(focused === 'draft-start', `foco em "${focused}" (esperava draft-start)`);
+    expect(db.entries.length === 1, 'rascunho não deveria persistir nada ainda');
+    expect(pageErrors.length === 0, `erros no console: ${pageErrors.join(' | ')}`);
+    await ctx.close();
+  });
+
+  await scenario('ADICIONAR HORÁRIO: preencher e Salvar → POST + linha nova + feedback', async () => {
+    const db = makeDb();
+    const { ctx, page, pageErrors } = await newDashboard(browser, db);
+    await page.click('.day-card >> nth=0 >> .btn-add-entry');
+    await page.waitForSelector('#draft-start', { timeout: 5000 });
+    await page.fill('#draft-start', '13:00');
+    await page.fill('#draft-end',   '14:30');
+    await page.fill('.draft-row input[placeholder="Descrição…"]', 'Nova tarefa');
+    await page.click('#draft-save');
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.entry-row:not(.draft-row)').length === 2, { timeout: 5000 });
+    expect(db.entries.length === 2, 'entrada não persistida no banco');
+    const nova = db.entries[1];
+    expect(nova.start_time === '13:00' && nova.end_time === '14:30',
+      `banco tem ${nova.start_time}–${nova.end_time}`);
+    expect(nova.description === 'Nova tarefa', `descrição: "${nova.description}"`);
     const st = await page.textContent('#save-status');
     expect(/entrada adicionada/i.test(st), `status inesperado: "${st}"`);
+    expect(pageErrors.length === 0, `erros no console: ${pageErrors.join(' | ')}`);
+    await ctx.close();
+  });
+
+  await scenario('CANCELAR rascunho → descarta sem salvar, nada muda', async () => {
+    const db = makeDb();
+    let posted = false;
+    const { ctx, page } = await newDashboard(browser, db);
+    await ctx.route('**/rest/v1/entries*', r =>
+      r.request().method() === 'POST' ? (posted = true, r.abort()) : r.continue());
+    await page.click('.day-card >> nth=0 >> .btn-add-entry');
+    await page.waitForSelector('#draft-start', { timeout: 5000 });
+    await page.fill('#draft-start', '20:00');
+    await page.click('.btn-cancel-draft');
+    await page.waitForFunction(() => !document.querySelector('.draft-row'), { timeout: 5000 });
+    expect(!posted, 'POST enviado mesmo cancelando');
+    expect(db.entries.length === 1, 'banco alterado após cancelar');
+    expect((await page.$$('.entry-row')).length === 1, 'linhas existentes alteradas');
+    await ctx.close();
+  });
+
+  await scenario('validação: início ≥ fim → mensagem clara, sem POST', async () => {
+    const db = makeDb();
+    const { ctx, page } = await newDashboard(browser, db);
+    await page.click('.day-card >> nth=0 >> .btn-add-entry');
+    await page.waitForSelector('#draft-start', { timeout: 5000 });
+    await page.fill('#draft-start', '15:00');
+    await page.fill('#draft-end',   '14:00');
+    await page.click('#draft-save');
+    await page.waitForSelector('.draft-error:visible', { timeout: 5000 });
+    const err = await page.textContent('.draft-error');
+    expect(/inicial deve ser menor/i.test(err), `mensagem: "${err}"`);
+    expect(db.entries.length === 1, 'persistiu entrada inválida');
+    await ctx.close();
+  });
+
+  await scenario('validação: conflito de horário com entrada existente → erro', async () => {
+    const db = makeDb(); // entrada existente 09:00–10:30
+    const { ctx, page } = await newDashboard(browser, db);
+    await page.click('.day-card >> nth=0 >> .btn-add-entry');
+    await page.waitForSelector('#draft-start', { timeout: 5000 });
+    await page.fill('#draft-start', '10:00');
+    await page.fill('#draft-end',   '11:00');
+    await page.click('#draft-save');
+    await page.waitForSelector('.draft-error:visible', { timeout: 5000 });
+    const err = await page.textContent('.draft-error');
+    expect(/conflito/i.test(err), `mensagem: "${err}"`);
+    expect(db.entries.length === 1, 'persistiu entrada em conflito');
+    await ctx.close();
+  });
+
+  await scenario('digitação contínua no campo de horário SEM perder o foco', async () => {
+    const db = makeDb();
+    const { ctx, page, pageErrors } = await newDashboard(browser, db);
+    const sel = '.entry-row input[type="time"] >> nth=0';
+    await page.evaluate(() => document.querySelector('.entry-row input[type="time"]').focus());
+    await page.keyboard.type('0845', { delay: 120 });
+    const stillFocused = await page.evaluate(() =>
+      document.activeElement?.classList.contains('time-field'));
+    expect(stillFocused, 'campo perdeu o foco durante a digitação');
+    const val = await page.inputValue(sel);
+    expect(val === '08:45', `valor final: "${val}" (esperava 08:45)`);
+    await page.evaluate(() => document.activeElement.blur());
+    await page.waitForTimeout(400);
+    expect(db.entries[0].start_time === '08:45', `banco tem: ${db.entries[0].start_time}`);
     expect(pageErrors.length === 0, `erros no console: ${pageErrors.join(' | ')}`);
     await ctx.close();
   });

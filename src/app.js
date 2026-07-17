@@ -37,6 +37,7 @@ const state = {
   calYear:    TODAY.getFullYear(),
   calMonth:   TODAY.getMonth(),
   days:       [],   // populado por loadFromServer()
+  draft:      null, // rascunho de nova entrada: { dayId, start, end, type, desc, durMode, mins, minsRaw }
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -193,12 +194,18 @@ function cancelRemoveMode() {
 // Ações: entradas (otimista — UI imediata, persistência em background)
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * Edição de campo NÃO re-renderiza o DOM — só atualiza os totais em vez
+ * de reconstruir os inputs. Reconstruir destruía o input no meio da
+ * digitação (o browser comita <input type="time"> a cada segmento) e o
+ * usuário perdia o foco antes de terminar de digitar os minutos.
+ */
 async function updateEntry(dayId, entryId, field, value) {
   const day   = findDay(dayId);
   const entry = findEntry(day, entryId);
   if (!entry) { console.error('[app] updateEntry: entrada não encontrada', dayId, entryId); return; }
   entry[field] = value;
-  render();
+  refreshTotals(dayId);
   try {
     await API.updateEntry(entryId, { [field]: value });
     showSaveStatus('Salvo');
@@ -211,11 +218,16 @@ async function updateEntry(dayId, entryId, field, value) {
 /** Campo de duração: valida o formato antes de salvar; inválido → mantém valor anterior. */
 async function updateEntryMins(dayId, entryId, rawValue) {
   const mins = parseHours(rawValue);
+  const day   = findDay(dayId);
+  const entry = findEntry(day, entryId);
+  if (!entry) return;
+  const input = document.querySelector(`.entry-row[data-entry-id="${entryId}"] .hrs-field`);
   if (mins == null) {
     showSaveStatus('Formato inválido — use H:MM ou decimal (ex: 1:30 ou 1.5)', true);
-    render();
+    if (input) input.value = minsToHoursInput(entry.mins);
     return;
   }
+  if (input) input.value = minsToHoursInput(mins);
   await updateEntry(dayId, entryId, 'mins', mins);
 }
 
@@ -233,26 +245,139 @@ async function removeEntry(dayId, entryId) {
   }
 }
 
-async function addEntry(dayId) {
-  const day  = findDay(dayId);
-  if (!day) { console.error('[app] addEntry: dia não encontrado', dayId); return; }
+// ─────────────────────────────────────────────────────────────────
+// Rascunho de nova entrada (Adicionar Horário → Salvar / Cancelar)
+//
+// Nada é persistido até o usuário clicar em Salvar. Cancelar descarta
+// o rascunho sem tocar no banco nem nas entradas existentes.
+// ─────────────────────────────────────────────────────────────────
+
+function openDraft(dayId) {
+  const day = findDay(dayId);
+  if (!day) return;
   const last = day.entries[day.entries.length - 1];
-  const draft = {
-    start: last?.end || '09:00',
-    end:   '',
-    type:  'activity',
-    desc:  '',
-    mins:  null,
+  state.draft = {
+    dayId:   String(day.id),
+    start:   (last && last.mins == null && last.end) ? last.end : '',
+    end:     '',
+    type:    'activity',
+    desc:    '',
+    durMode: false,
+    mins:    null,
+    minsRaw: '',
   };
+  render();
+  setTimeout(() => document.getElementById('draft-start')?.focus(), 30);
+}
+
+function updateDraft(field, value) {
+  if (!state.draft) return;
+  state.draft[field] = value;
+  hideDraftError();
+  refreshDraftTotal();
+}
+
+function updateDraftMins(value) {
+  if (!state.draft) return;
+  state.draft.minsRaw = value;
+  state.draft.mins = parseHours(value);
+  hideDraftError();
+  refreshDraftTotal();
+}
+
+function refreshDraftTotal() {
+  const el = document.getElementById('draft-total');
+  if (!el || !state.draft) return;
+  const d = state.draft;
+  const mins = d.durMode ? (d.mins || 0) : timeDiff(d.start, d.end);
+  el.textContent = mins > 0 ? formatMins(mins) : '—';
+}
+
+function draftToggleMode() {
+  const d = state.draft;
+  if (!d) return;
+  d.durMode = !d.durMode;
+  if (d.durMode && d.mins == null) {
+    const calc = timeDiff(d.start, d.end);
+    if (calc > 0) { d.mins = calc; d.minsRaw = minsToHoursInput(calc); }
+  }
+  render();
+  setTimeout(() => document.getElementById('draft-start')?.focus(), 30);
+}
+
+/** Enter salva, Escape cancela — navegação por teclado no rascunho. */
+function draftKeys(ev) {
+  if (ev.key === 'Enter')  { ev.preventDefault(); saveDraft(); }
+  if (ev.key === 'Escape') { cancelDraft(); }
+}
+
+function validateDraft(day, d) {
+  if (d.durMode) {
+    if (d.mins == null || d.mins <= 0)
+      return 'Informe a duração no formato H:MM ou decimal (ex: 1:30 ou 1.5).';
+    return null;
+  }
+  if (!d.start && !d.end) return 'Informe o horário inicial e final.';
+  if (!d.start) return 'Informe o horário inicial.';
+  if (!d.end)   return 'Informe o horário final.';
+  if (d.start >= d.end) return 'O horário inicial deve ser menor que o horário final.';
+  for (const e of day.entries) {
+    if (e.mins != null || !e.start || !e.end) continue;
+    if (e.start === d.start && e.end === d.end)
+      return `Horário duplicado: já existe uma entrada ${e.start}–${e.end}.`;
+    if (d.start < e.end && d.end > e.start)
+      return `Conflito de horário com a entrada ${e.start}–${e.end}.`;
+  }
+  return null;
+}
+
+async function saveDraft() {
+  const d = state.draft;
+  if (!d) return;
+  const day = findDay(d.dayId);
+  if (!day) return;
+
+  const err = validateDraft(day, d);
+  if (err) { showDraftError(err); return; }
+
+  const entry = {
+    start: d.durMode ? '' : d.start,
+    end:   d.durMode ? '' : d.end,
+    type:  d.type,
+    desc:  d.desc.trim(),
+    mins:  d.durMode ? d.mins : null,
+  };
+
+  const btn = document.getElementById('draft-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+
   try {
-    const id = await API.createEntry(dayId, draft, day.entries.length);
-    day.entries.push({ id, ...draft });
+    const id = await API.createEntry(day.id, entry, day.entries.length);
+    day.entries.push({ id, ...entry });
+    state.draft = null;
     render();
     showSaveStatus('Entrada adicionada');
-  } catch (err) {
+  } catch (e2) {
+    console.error(e2);
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Salvar'; }
+    showDraftError('Não foi possível salvar. Verifique sua conexão e tente novamente.');
     showSaveStatus('Erro ao adicionar', true);
-    console.error(err);
   }
+}
+
+function cancelDraft() {
+  state.draft = null;
+  render();
+}
+
+function showDraftError(msg) {
+  const el = document.getElementById('draft-error');
+  if (el) { el.textContent = '⚠ ' + msg; el.style.display = 'block'; }
+}
+
+function hideDraftError() {
+  const el = document.getElementById('draft-error');
+  if (el) { el.textContent = ''; el.style.display = 'none'; }
 }
 
 async function toggleEntryMode(dayId, entryId) {
@@ -452,7 +577,94 @@ function renderCal() {
 // Render: corpo principal (day cards + summary)
 // ─────────────────────────────────────────────────────────────────
 
-function renderBody() {
+/** Pills de totais de um dia. */
+function pillsHTML(t) {
+  return `
+    <span class="pill pill-meeting">Reuniões: ${formatMins(t.meeting)}</span>
+    <span class="pill pill-activity">Atividades: ${formatMins(t.activity)}</span>
+    ${t.brk > 0 ? `<span class="pill pill-break">Pausas: ${formatMins(t.brk)}</span>` : ''}
+    <span class="pill pill-total">Total: ${formatMins(t.total)}</span>`;
+}
+
+/** Formulário de rascunho de nova entrada (Adicionar Horário). */
+function draftHTML() {
+  const d = state.draft;
+  const modeIcon = d.durMode
+    ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`
+    : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2h14"/><path d="M5 22h14"/><path d="M5 2c0 9 14 9 14 0"/><path d="M5 22c0-9 14-9 14 0"/></svg>`;
+  const modeTitle = d.durMode ? 'Usar horário de início e fim' : 'Registrar só a duração';
+
+  const timeArea = d.durMode
+    ? `<input type="text" class="hrs-field" id="draft-start" value="${esc(d.minsRaw)}"
+          placeholder="ex: 1:30 ou 1.5" title="Horas no formato H:MM ou decimal"
+          onclick="event.stopPropagation()"
+          oninput="updateDraftMins(this.value)" onkeydown="draftKeys(event)">`
+    : `<input type="time" class="time-field" id="draft-start" value="${d.start}"
+          aria-label="Horário inicial"
+          onclick="event.stopPropagation()"
+          oninput="updateDraft('start',this.value)" onkeydown="draftKeys(event)">
+        <span class="time-sep" aria-hidden="true">→</span>
+        <input type="time" class="time-field" id="draft-end" value="${d.end}"
+          aria-label="Horário final"
+          onclick="event.stopPropagation()"
+          oninput="updateDraft('end',this.value)" onkeydown="draftKeys(event)">`;
+
+  const mins = d.durMode ? (d.mins || 0) : timeDiff(d.start, d.end);
+
+  return `
+    <div class="entry-row draft-row" onclick="event.stopPropagation()">
+      <button class="btn-mode" title="${modeTitle}" aria-label="${modeTitle}"
+        onclick="draftToggleMode()">${modeIcon}</button>
+      <div class="entry-time-area">${timeArea}</div>
+      <select aria-label="Tipo" onchange="updateDraft('type',this.value)">
+        <option value="meeting"  ${d.type === 'meeting'  ? 'selected' : ''}>Reunião</option>
+        <option value="activity" ${d.type === 'activity' ? 'selected' : ''}>Atividade</option>
+        <option value="break"    ${d.type === 'break'    ? 'selected' : ''}>Pausa</option>
+      </select>
+      <input type="text" value="${esc(d.desc)}" placeholder="Descrição…"
+        oninput="updateDraft('desc',this.value)" onkeydown="draftKeys(event)">
+      <div class="duration-cell" id="draft-total">${mins > 0 ? formatMins(mins) : '—'}</div>
+      <span></span>
+    </div>
+    <div class="draft-error" id="draft-error" role="alert" style="display:none"></div>
+    <div class="draft-actions" onclick="event.stopPropagation()">
+      <button class="btn-save-draft" id="draft-save" onclick="saveDraft()">✓ Salvar</button>
+      <button class="btn-cancel-draft" onclick="cancelDraft()">Cancelar</button>
+    </div>`;
+}
+
+/**
+ * Atualiza apenas os totais (badge do dia, célula da entrada, pills,
+ * resumo e calendário) sem reconstruir os inputs — preserva o foco
+ * durante a digitação.
+ */
+function refreshTotals(dayId) {
+  const day = findDay(dayId);
+  if (day) {
+    const card = document.querySelector(`.day-card[data-day-id="${day.id}"]`);
+    if (card) {
+      const t = getDayTotals(day);
+      const badge = card.querySelector('.total-badge');
+      if (badge) badge.textContent = `${formatMins(t.total)} trabalhados`;
+      const pills = card.querySelector('.pills');
+      if (pills) pills.innerHTML = pillsHTML(t);
+      day.entries.forEach(e => {
+        const cell = card.querySelector(`.entry-row[data-entry-id="${e.id}"] .duration-cell`);
+        if (cell) cell.textContent = formatMins(e.mins != null ? e.mins : timeDiff(e.start, e.end));
+      });
+    }
+  }
+  renderSummary();
+  if (state.showCal) renderCal();
+}
+
+/** Reconstrói somente o bloco de resumo geral. */
+function renderSummary() {
+  const wrap = document.getElementById('summary-wrap');
+  if (wrap) wrap.innerHTML = summaryHTML();
+}
+
+function summaryHTML() {
   // ── Totais globais ──────────────────────────────────────────────
   let gMeeting = 0, gActivity = 0, gBreak = 0;
   state.days.forEach(d => {
@@ -477,110 +689,7 @@ function renderBody() {
   });
   const monthName = MONTHS[TODAY.getMonth()];
 
-  // ── Day cards ───────────────────────────────────────────────────
-  let html = '';
-
-  state.days.forEach(day => {
-    const t          = getDayTotals(day);
-    const isRemoving = String(state.removingId) === String(day.id);
-    const cardCls    = state.removeMode
-      ? (isRemoving ? 'day-card removing' : 'day-card remove-mode')
-      : 'day-card';
-
-    html += `
-      <div class="${cardCls}"
-           onclick="${state.removeMode ? `selectForRemoval('${day.id}')` : 'void(0)'}">
-
-        <div class="day-header">
-          <div class="day-header-left">
-            ${isRemoving ? `<span aria-hidden="true" style="font-size:15px;color:var(--tx-danger)">&#10004;</span>` : ''}
-            <input type="date" value="${day.date}"
-              style="width:auto"
-              onclick="event.stopPropagation()"
-              onchange="updateDay('${day.id}','date',this.value)">
-            <span class="total-badge">${formatMins(t.total)} trabalhados</span>
-            ${isRemoving ? `<span class="removing-badge">&#128465; para remoção</span>` : ''}
-          </div>
-        </div>
-
-        <div class="entry-header-row">
-          <span></span>
-          <span>Horário / Duração</span>
-          <span>Tipo</span>
-          <span>Descrição</span>
-          <span style="text-align:right;padding-right:4px">Total</span>
-          <span></span>
-        </div>
-        <div class="sep"></div>
-
-        <div class="entries-list">`;
-
-    day.entries.forEach(entry => {
-      const isDur = entry.mins != null;
-      const dur   = isDur ? entry.mins : timeDiff(entry.start, entry.end);
-
-      // Ícone do botão de modo: mostra o modo ALTERNATIVO (o que você vai ganhar ao clicar)
-      const modeIcon = isDur
-        ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`
-        : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2h14"/><path d="M5 22h14"/><path d="M5 2c0 9 14 9 14 0"/><path d="M5 22c0-9 14-9 14 0"/></svg>`;
-      const modeTitle = isDur ? 'Usar horário de início e fim' : 'Registrar só a duração';
-
-      // Área de tempo: dois inputs de hora OU um input de duração
-      const timeArea = isDur
-        ? `<input type="text" class="hrs-field" value="${minsToHoursInput(entry.mins)}"
-              placeholder="ex: 1:30 ou 1.5"
-              title="Horas no formato H:MM ou decimal (ex: 1.5)"
-              onclick="event.stopPropagation()"
-              onchange="updateEntryMins('${day.id}','${entry.id}',this.value)">`
-        : `<input type="time" class="time-field" value="${entry.start}"
-              onclick="event.stopPropagation()"
-              onchange="updateEntry('${day.id}','${entry.id}','start',this.value)">
-            <span class="time-sep" aria-hidden="true">→</span>
-            <input type="time" class="time-field" value="${entry.end}"
-              onclick="event.stopPropagation()"
-              onchange="updateEntry('${day.id}','${entry.id}','end',this.value)">`;
-
-      html += `
-          <div class="entry-row">
-            <button class="btn-mode" title="${modeTitle}"
-              onclick="event.stopPropagation();toggleEntryMode('${day.id}','${entry.id}')"
-              aria-label="${modeTitle}">${modeIcon}</button>
-            <div class="entry-time-area">${timeArea}</div>
-            <select onclick="event.stopPropagation()"
-              onchange="updateEntry('${day.id}','${entry.id}','type',this.value)">
-              <option value="meeting"  ${entry.type === 'meeting'  ? 'selected' : ''}>Reunião</option>
-              <option value="activity" ${entry.type === 'activity' ? 'selected' : ''}>Atividade</option>
-              <option value="break"    ${entry.type === 'break'    ? 'selected' : ''}>Pausa</option>
-            </select>
-            <input type="text" value="${esc(entry.desc)}" placeholder="Descrição…"
-              onclick="event.stopPropagation()"
-              onchange="updateEntry('${day.id}','${entry.id}','desc',this.value)">
-            <div class="duration-cell">${formatMins(dur)}</div>
-            <button class="btn-remove-entry" title="Remover entrada"
-              onclick="event.stopPropagation();removeEntry('${day.id}','${entry.id}')">&#x2715;</button>
-          </div>`;
-    });
-
-    html += `
-        </div>
-
-        <button class="btn-add-entry"
-          onclick="event.stopPropagation();addEntry('${day.id}')">
-          + adicionar entrada
-        </button>
-
-        <div class="sep" style="margin-top:12px"></div>
-        <div class="pills">
-          <span class="pill pill-meeting">Reuniões: ${formatMins(t.meeting)}</span>
-          <span class="pill pill-activity">Atividades: ${formatMins(t.activity)}</span>
-          ${t.brk > 0 ? `<span class="pill pill-break">Pausas: ${formatMins(t.brk)}</span>` : ''}
-          <span class="pill pill-total">Total: ${formatMins(t.total)}</span>
-        </div>
-      </div>`;
-  });
-
-  // ── Resumo geral ────────────────────────────────────────────────
-  html += `
+  return `
     <div class="summary">
       <div class="summary-heading">Resumo geral</div>
 
@@ -652,6 +761,110 @@ function renderBody() {
       </div>
 
     </div>`;
+}
+
+function renderBody() {
+  let html = '';
+
+  state.days.forEach(day => {
+    const t          = getDayTotals(day);
+    const isRemoving = String(state.removingId) === String(day.id);
+    const cardCls    = state.removeMode
+      ? (isRemoving ? 'day-card removing' : 'day-card remove-mode')
+      : 'day-card';
+
+    html += `
+      <div class="${cardCls}" data-day-id="${day.id}"
+           onclick="${state.removeMode ? `selectForRemoval('${day.id}')` : 'void(0)'}">
+
+        <div class="day-header">
+          <div class="day-header-left">
+            ${isRemoving ? `<span aria-hidden="true" style="font-size:15px;color:var(--tx-danger)">&#10004;</span>` : ''}
+            <input type="date" value="${day.date}"
+              style="width:auto"
+              onclick="event.stopPropagation()"
+              onchange="updateDay('${day.id}','date',this.value)">
+            <span class="total-badge">${formatMins(t.total)} trabalhados</span>
+            ${isRemoving ? `<span class="removing-badge">&#128465; para remoção</span>` : ''}
+          </div>
+        </div>
+
+        <div class="entry-header-row">
+          <span></span>
+          <span>Horário / Duração</span>
+          <span>Tipo</span>
+          <span>Descrição</span>
+          <span style="text-align:right;padding-right:4px">Total</span>
+          <span></span>
+        </div>
+        <div class="sep"></div>
+
+        <div class="entries-list">`;
+
+    day.entries.forEach(entry => {
+      const isDur = entry.mins != null;
+      const dur   = isDur ? entry.mins : timeDiff(entry.start, entry.end);
+
+      // Ícone do botão de modo: mostra o modo ALTERNATIVO (o que você vai ganhar ao clicar)
+      const modeIcon = isDur
+        ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>`
+        : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2h14"/><path d="M5 22h14"/><path d="M5 2c0 9 14 9 14 0"/><path d="M5 22c0-9 14-9 14 0"/></svg>`;
+      const modeTitle = isDur ? 'Usar horário de início e fim' : 'Registrar só a duração';
+
+      // Área de tempo: dois inputs de hora OU um input de duração
+      const timeArea = isDur
+        ? `<input type="text" class="hrs-field" value="${minsToHoursInput(entry.mins)}"
+              placeholder="ex: 1:30 ou 1.5"
+              title="Horas no formato H:MM ou decimal (ex: 1.5)"
+              onclick="event.stopPropagation()"
+              onchange="updateEntryMins('${day.id}','${entry.id}',this.value)">`
+        : `<input type="time" class="time-field" value="${entry.start}"
+              onclick="event.stopPropagation()"
+              onchange="updateEntry('${day.id}','${entry.id}','start',this.value)">
+            <span class="time-sep" aria-hidden="true">→</span>
+            <input type="time" class="time-field" value="${entry.end}"
+              onclick="event.stopPropagation()"
+              onchange="updateEntry('${day.id}','${entry.id}','end',this.value)">`;
+
+      html += `
+          <div class="entry-row" data-entry-id="${entry.id}">
+            <button class="btn-mode" title="${modeTitle}"
+              onclick="event.stopPropagation();toggleEntryMode('${day.id}','${entry.id}')"
+              aria-label="${modeTitle}">${modeIcon}</button>
+            <div class="entry-time-area">${timeArea}</div>
+            <select onclick="event.stopPropagation()"
+              onchange="updateEntry('${day.id}','${entry.id}','type',this.value)">
+              <option value="meeting"  ${entry.type === 'meeting'  ? 'selected' : ''}>Reunião</option>
+              <option value="activity" ${entry.type === 'activity' ? 'selected' : ''}>Atividade</option>
+              <option value="break"    ${entry.type === 'break'    ? 'selected' : ''}>Pausa</option>
+            </select>
+            <input type="text" value="${esc(entry.desc)}" placeholder="Descrição…"
+              onclick="event.stopPropagation()"
+              onchange="updateEntry('${day.id}','${entry.id}','desc',this.value)">
+            <div class="duration-cell">${formatMins(dur)}</div>
+            <button class="btn-remove-entry" title="Remover entrada"
+              onclick="event.stopPropagation();removeEntry('${day.id}','${entry.id}')">&#x2715;</button>
+          </div>`;
+    });
+
+    const hasDraft = state.draft && String(state.draft.dayId) === String(day.id);
+
+    html += `
+        </div>
+
+        ${hasDraft ? draftHTML() : `
+        <button class="btn-add-entry"
+          onclick="event.stopPropagation();openDraft('${day.id}')">
+          + Adicionar horário
+        </button>`}
+
+        <div class="sep" style="margin-top:12px"></div>
+        <div class="pills">${pillsHTML(t)}</div>
+      </div>`;
+  });
+
+  // ── Resumo geral (reconstruível isoladamente via renderSummary) ──
+  html += `<div id="summary-wrap">${summaryHTML()}</div>`;
 
   document.getElementById('app-body').innerHTML = html;
 }

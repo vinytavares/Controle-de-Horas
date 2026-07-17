@@ -296,6 +296,41 @@ input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(.75); cur
 
 .sep { height: 1px; background: var(--bd-light); margin: 6px 0 10px; }
 
+/* ── Rascunho de nova entrada (Adicionar Horário) ────────────────── */
+.draft-row {
+  margin-top: 10px; padding: 8px;
+  background: var(--bg-info);
+  border: 1px solid var(--bd-info);
+  border-radius: var(--rad-md);
+  animation: fadeIn .2s ease;
+}
+.draft-error {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--tx-danger);
+  padding: 8px 4px 0;
+}
+.draft-actions {
+  display: flex; gap: 8px; margin-top: 10px;
+}
+.btn-save-draft {
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  padding: 8px 18px;
+  background: linear-gradient(180deg, var(--blue-hi), var(--blue));
+  color: #fff; border: none; border-radius: var(--rad-md); cursor: pointer;
+  box-shadow: 0 2px 12px rgba(37,99,235,.30);
+  transition: box-shadow var(--transition), transform var(--transition), filter var(--transition);
+}
+.btn-save-draft:hover:not(:disabled) { box-shadow: var(--glow); transform: translateY(-1px); filter: brightness(1.06); }
+.btn-save-draft:disabled { opacity: .55; cursor: not-allowed; }
+.btn-cancel-draft {
+  font-family: var(--font); font-size: 13px; font-weight: 500;
+  padding: 8px 16px;
+  background: transparent; color: var(--tx-secondary);
+  border: 1px solid var(--bd-mid); border-radius: var(--rad-md); cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.btn-cancel-draft:hover { background: var(--bg-secondary); color: var(--tx-primary); border-color: var(--border-hi, rgba(255,255,255,.14)); }
+
 /* ── Pills ───────────────────────────────────────────────────────── */
 .pills { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
 .pill { font-size: 11px; font-weight: 500; padding: 3px 11px; border-radius: var(--rad-pill); border: 1px solid transparent; }
