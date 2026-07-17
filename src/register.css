@@ -1,6 +1,6 @@
 /* ================================================================
-   Controle de Horas — register.css
-   Estilos específicos do formulário de cadastro
+   Controle de Horas — register.css v4.0
+   Dark Premium · Estilos específicos do formulário de cadastro
    ================================================================ */
 
 /* ── Regras de senha ─────────────────────────────────────────── */
@@ -11,8 +11,8 @@
   gap: 6px;
   margin-top: -4px;
   padding: 12px 14px;
-  background: rgba(245, 223, 187, 0.04);
-  border: 1px solid rgba(245, 223, 187, 0.08);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: var(--rad-md);
 }
 
@@ -21,51 +21,52 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--wheat-dim);
-  transition: color 0.2s;
+  color: var(--tx-2);
+  transition: color var(--t);
 }
 
 .rule-icon {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 1.5px solid rgba(245, 223, 187, 0.25);
+  border: 1.5px solid rgba(255,255,255,.20);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   font-size: 9px;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background var(--t), border-color var(--t), box-shadow var(--t);
 }
 
 .rule.passed {
-  color: var(--cyan-lt);
+  color: var(--blue-soft);
 }
 
 .rule.passed .rule-icon {
-  background: var(--cyan);
-  border-color: var(--cyan);
+  background: var(--blue);
+  border-color: var(--blue-hi);
+  box-shadow: 0 0 10px rgba(37,99,235,.45);
 }
 
 .rule.passed .rule-icon::after {
   content: '✓';
-  color: var(--black);
+  color: #fff;
   font-weight: 700;
   line-height: 1;
 }
 
 .rule.failed {
-  color: #FF8060;
+  color: var(--danger);
 }
 
 .rule.failed .rule-icon {
-  background: rgba(242, 84, 45, 0.2);
-  border-color: var(--terra);
+  background: var(--danger-bg);
+  border-color: var(--danger);
 }
 
 .rule.failed .rule-icon::after {
   content: '✕';
-  color: var(--terra);
+  color: var(--danger);
   font-size: 8px;
   font-weight: 700;
   line-height: 1;

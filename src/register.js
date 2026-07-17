@@ -98,7 +98,7 @@ function renderStrength(pw) {
     b.className = 'pw-bar' + (i < filled ? ` ${cls}` : '');
   });
   pwLabel.textContent = label;
-  pwLabel.style.color = { weak: '#E24B4A', fair: '#EF9F27', good: '#1D9E75', strong: '#639922' }[cls];
+  pwLabel.style.color = { weak: '#EF4444', fair: '#F59E0B', good: '#3B82F6', strong: '#22C55E' }[cls];
 }
 
 // ─── Feedback inline ──────────────────────────────────────────────
