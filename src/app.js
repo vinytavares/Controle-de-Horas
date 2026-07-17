@@ -105,6 +105,24 @@ function pct(val, max) {
   return max > 0 ? Math.round(val / max * 100) : 0;
 }
 
+/** Escapa texto para uso seguro em atributos/conteúdo HTML. */
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * IDs vêm do Postgres como UUID (string). Comparação sempre por String
+ * para funcionar com qualquer tipo de chave.
+ */
+function findDay(dayId) {
+  return state.days.find(d => String(d.id) === String(dayId));
+}
+function findEntry(day, entryId) {
+  return day ? day.entries.find(e => String(e.id) === String(entryId)) : null;
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Ações: dias
 // ─────────────────────────────────────────────────────────────────
@@ -145,7 +163,7 @@ function toggleRemoveMode() {
 
 function selectForRemoval(dayId) {
   if (!state.removeMode) return;
-  state.removingId = state.removingId === dayId ? null : dayId;
+  state.removingId = String(state.removingId) === String(dayId) ? null : dayId;
   render();
 }
 
@@ -154,7 +172,7 @@ async function confirmRemove() {
   const dayId = state.removingId;
   try {
     await API.deleteDay(dayId);
-    state.days = state.days.filter(d => d.id !== dayId);
+    state.days = state.days.filter(d => String(d.id) !== String(dayId));
     state.removingId = null;
     if (state.days.length === 0) state.removeMode = false;
     render();
@@ -176,8 +194,9 @@ function cancelRemoveMode() {
 // ─────────────────────────────────────────────────────────────────
 
 async function updateEntry(dayId, entryId, field, value) {
-  const day   = state.days.find(d => d.id === dayId);
-  const entry = day.entries.find(e => e.id === entryId);
+  const day   = findDay(dayId);
+  const entry = findEntry(day, entryId);
+  if (!entry) { console.error('[app] updateEntry: entrada não encontrada', dayId, entryId); return; }
   entry[field] = value;
   render();
   try {
@@ -189,9 +208,21 @@ async function updateEntry(dayId, entryId, field, value) {
   }
 }
 
+/** Campo de duração: valida o formato antes de salvar; inválido → mantém valor anterior. */
+async function updateEntryMins(dayId, entryId, rawValue) {
+  const mins = parseHours(rawValue);
+  if (mins == null) {
+    showSaveStatus('Formato inválido — use H:MM ou decimal (ex: 1:30 ou 1.5)', true);
+    render();
+    return;
+  }
+  await updateEntry(dayId, entryId, 'mins', mins);
+}
+
 async function removeEntry(dayId, entryId) {
-  const day = state.days.find(d => d.id === dayId);
-  day.entries = day.entries.filter(e => e.id !== entryId);
+  const day = findDay(dayId);
+  if (!day) return;
+  day.entries = day.entries.filter(e => String(e.id) !== String(entryId));
   render();
   try {
     await API.deleteEntry(entryId);
@@ -203,7 +234,8 @@ async function removeEntry(dayId, entryId) {
 }
 
 async function addEntry(dayId) {
-  const day  = state.days.find(d => d.id === dayId);
+  const day  = findDay(dayId);
+  if (!day) { console.error('[app] addEntry: dia não encontrado', dayId); return; }
   const last = day.entries[day.entries.length - 1];
   const draft = {
     start: last?.end || '09:00',
@@ -224,8 +256,9 @@ async function addEntry(dayId) {
 }
 
 async function toggleEntryMode(dayId, entryId) {
-  const day   = state.days.find(d => d.id === dayId);
-  const entry = day.entries.find(e => e.id === entryId);
+  const day   = findDay(dayId);
+  const entry = findEntry(day, entryId);
+  if (!entry) { console.error('[app] toggleEntryMode: entrada não encontrada', dayId, entryId); return; }
 
   if (entry.mins != null) {
     // Voltar para modo horário
@@ -247,7 +280,8 @@ async function toggleEntryMode(dayId, entryId) {
 }
 
 async function updateDay(dayId, field, value) {
-  const day = state.days.find(d => d.id === dayId);
+  const day = findDay(dayId);
+  if (!day) { console.error('[app] updateDay: dia não encontrado', dayId); return; }
   day[field] = value;
   state.days.sort((a, b) => a.date.localeCompare(b.date));
   render();
@@ -448,14 +482,14 @@ function renderBody() {
 
   state.days.forEach(day => {
     const t          = getDayTotals(day);
-    const isRemoving = state.removingId === day.id;
+    const isRemoving = String(state.removingId) === String(day.id);
     const cardCls    = state.removeMode
       ? (isRemoving ? 'day-card removing' : 'day-card remove-mode')
       : 'day-card';
 
     html += `
       <div class="${cardCls}"
-           onclick="${state.removeMode ? `selectForRemoval(${day.id})` : 'void(0)'}">
+           onclick="${state.removeMode ? `selectForRemoval('${day.id}')` : 'void(0)'}">
 
         <div class="day-header">
           <div class="day-header-left">
@@ -463,7 +497,7 @@ function renderBody() {
             <input type="date" value="${day.date}"
               style="width:auto"
               onclick="event.stopPropagation()"
-              onchange="updateDay(${day.id},'date',this.value)">
+              onchange="updateDay('${day.id}','date',this.value)">
             <span class="total-badge">${formatMins(t.total)} trabalhados</span>
             ${isRemoving ? `<span class="removing-badge">&#128465; para remoção</span>` : ''}
           </div>
@@ -497,33 +531,33 @@ function renderBody() {
               placeholder="ex: 1:30 ou 1.5"
               title="Horas no formato H:MM ou decimal (ex: 1.5)"
               onclick="event.stopPropagation()"
-              onchange="updateEntry(${day.id},${entry.id},'mins',parseHours(this.value))">`
+              onchange="updateEntryMins('${day.id}','${entry.id}',this.value)">`
         : `<input type="time" class="time-field" value="${entry.start}"
               onclick="event.stopPropagation()"
-              onchange="updateEntry(${day.id},${entry.id},'start',this.value)">
+              onchange="updateEntry('${day.id}','${entry.id}','start',this.value)">
             <span class="time-sep" aria-hidden="true">→</span>
             <input type="time" class="time-field" value="${entry.end}"
               onclick="event.stopPropagation()"
-              onchange="updateEntry(${day.id},${entry.id},'end',this.value)">`;
+              onchange="updateEntry('${day.id}','${entry.id}','end',this.value)">`;
 
       html += `
           <div class="entry-row">
             <button class="btn-mode" title="${modeTitle}"
-              onclick="event.stopPropagation();toggleEntryMode(${day.id},${entry.id})"
+              onclick="event.stopPropagation();toggleEntryMode('${day.id}','${entry.id}')"
               aria-label="${modeTitle}">${modeIcon}</button>
             <div class="entry-time-area">${timeArea}</div>
             <select onclick="event.stopPropagation()"
-              onchange="updateEntry(${day.id},${entry.id},'type',this.value)">
+              onchange="updateEntry('${day.id}','${entry.id}','type',this.value)">
               <option value="meeting"  ${entry.type === 'meeting'  ? 'selected' : ''}>Reunião</option>
               <option value="activity" ${entry.type === 'activity' ? 'selected' : ''}>Atividade</option>
               <option value="break"    ${entry.type === 'break'    ? 'selected' : ''}>Pausa</option>
             </select>
-            <input type="text" value="${entry.desc}" placeholder="Descrição…"
+            <input type="text" value="${esc(entry.desc)}" placeholder="Descrição…"
               onclick="event.stopPropagation()"
-              onchange="updateEntry(${day.id},${entry.id},'desc',this.value)">
+              onchange="updateEntry('${day.id}','${entry.id}','desc',this.value)">
             <div class="duration-cell">${formatMins(dur)}</div>
             <button class="btn-remove-entry" title="Remover entrada"
-              onclick="event.stopPropagation();removeEntry(${day.id},${entry.id})">&#x2715;</button>
+              onclick="event.stopPropagation();removeEntry('${day.id}','${entry.id}')">&#x2715;</button>
           </div>`;
     });
 
@@ -531,7 +565,7 @@ function renderBody() {
         </div>
 
         <button class="btn-add-entry"
-          onclick="event.stopPropagation();addEntry(${day.id})">
+          onclick="event.stopPropagation();addEntry('${day.id}')">
           + adicionar entrada
         </button>
 
@@ -681,7 +715,7 @@ async function loadFromServer() {
   const user = await API.getUser();
   const el = document.getElementById('topbar-user');
   if (el && user) {
-    const initials = (user.name || user.email).split(' ')
+    const initials = String(user.name || user.email || '?').split(' ')
       .map(w => w[0]).join('').slice(0, 2).toUpperCase();
     el.innerHTML = `
       <div class="user-avatar" aria-hidden="true">${initials}</div>

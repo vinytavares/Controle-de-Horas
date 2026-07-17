@@ -102,12 +102,21 @@ function initAPI() {
     async getUser() {
       const session = await this.getSession();
       if (!session) return null;
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, name, email')
-        .eq('id', session.user.id)
-        .single();
-      return profile || { id: session.user.id, name: session.user.email, email: session.user.email };
+      const fallback = {
+        id:    session.user.id,
+        name:  session.user.user_metadata?.name || session.user.email || 'Usuário',
+        email: session.user.email || '',
+      };
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, name, email')
+          .eq('id', session.user.id)
+          .single();
+        return (profile && !Array.isArray(profile) && profile.id) ? profile : fallback;
+      } catch {
+        return fallback;
+      }
     },
 
     async isLoggedIn() {
