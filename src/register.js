@@ -221,11 +221,6 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideAlert();
 
-  if (!window.API) {
-    showAlert('Erro de conexão. Recarregue a página e tente novamente.', 'error');
-    return;
-  }
-
   const email    = emailInput.value.trim();
   const password = passInput.value;
   const confirm  = confirmInput.value;
@@ -250,7 +245,9 @@ form.addEventListener('submit', async (e) => {
     .replace(/\b\w/g, c => c.toUpperCase());
 
   try {
-    const { user } = await API.signup(name, email, password);
+    // Recupera o SDK dinamicamente se não carregou no primeiro paint
+    const api = await window.ensureAPI();
+    const { user } = await api.signup(name, email, password);
     showAlert(`Conta criada! Bem-vindo, ${user.name}.`, 'success');
     showToast('Redirecionando…');
     setTimeout(() => { window.location.replace('/app'); }, 700);

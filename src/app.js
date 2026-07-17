@@ -667,8 +667,12 @@ async function loadFromServer() {
 // ─────────────────────────────────────────────────────────────────
 
 (async function bootstrap() {
+  // Recupera o SDK dinamicamente se não carregou no primeiro paint
+  try { await window.ensureAPI(); }
+  catch { window.location.replace('/'); return; }
+
   // Guard: redireciona ao login se não autenticado
-  if (!window.API || !(await API.isLoggedIn())) {
+  if (!(await API.isLoggedIn())) {
     window.location.replace('/');
     return;
   }

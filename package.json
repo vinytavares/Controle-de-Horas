@@ -4,7 +4,8 @@
   "description": "Controle de horas com Supabase (auth + Postgres + RLS)",
   "private": true,
   "scripts": {
-    "dev": "npx serve . -p 3000"
+    "dev": "npx serve . -p 3000",
+    "test:e2e": "node tests/e2e.js"
   },
   "keywords": [
     "time-tracking",
