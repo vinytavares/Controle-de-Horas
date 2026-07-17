@@ -6,6 +6,13 @@
   "scripts": {
     "dev": "npx serve . -p 3000"
   },
-  "keywords": ["time-tracking", "horas", "supabase"],
-  "license": "MIT"
+  "keywords": [
+    "time-tracking",
+    "horas",
+    "supabase"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
 }
