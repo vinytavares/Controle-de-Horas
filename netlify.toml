@@ -23,16 +23,17 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Cache longo para assets estáticos (JS, CSS)
+# Assets sem fingerprint no nome: sempre revalidar com o servidor
+# (o ETag do Netlify devolve 304 quando não mudou — barato e sempre atual)
 [[headers]]
   for = "/src/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
   for = "/public/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 # Sem cache para HTML (sempre atualizado)
 [[headers]]

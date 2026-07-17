@@ -68,7 +68,7 @@ function expect(cond, msg) { if (!cond) throw new Error(msg); }
 async function newPage(browser, { blockSDK = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   if (blockSDK) {
-    await ctx.route('**/public/supabase.min.js', r => r.abort('failed'));
+    await ctx.route('**/public/supabase.min.js*', r => r.abort('failed'));
     await ctx.route('**/unpkg.com/**', r => r.abort('failed'));
     await ctx.route('**/cdn.jsdelivr.net/**', r => r.abort('failed'));
   }
